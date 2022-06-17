@@ -1,7 +1,5 @@
 from __future__ import print_function, division, absolute_import
 
-from __future__ import print_function, division, absolute_import
-
 from sensor_msgs.msg import JointState
 from relaxed_ik.msg import EEPoseGoals, JointAngles
 import rospy
@@ -32,8 +30,8 @@ class IK_Solution_Manager:
         Args:
             joint_state_msg (sensor_msgs.msg.JointState): ros message containing the current robot joint state
         """
+        rospy.loginfo("__OnJointStateReceived: " + str(joint_state_msg))
         
-        pass
         
     def __OnSolutionReceived(self, ik_solution_msg):
         """
@@ -42,7 +40,8 @@ class IK_Solution_Manager:
         # np.asarray(ik_solution_msg.angles.data)
         
         # Here we define what happens every time RelaxedIK generates a solution
-        pass
+        rospy.loginfo("__OnSolutionReceived: " + str(ik_solution_msg))
+        
         
     def joint_states_safety_check(self, joint_state):
         """This method checks if the target joint state is safe.

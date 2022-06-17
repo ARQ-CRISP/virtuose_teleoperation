@@ -85,6 +85,7 @@ class IK_Solution_Manager:
         # Here we send the message to the robot controller about the joint state destiation we want to go to.
         
         target_msg = JointState()
+        target_msg.name = self.jnames
         target_msg.header.stamp = rospy.Time.now()
         #TODO: target_msg.header.frame_id = '' 
         target_msg.position = target_joint_state.tolist()

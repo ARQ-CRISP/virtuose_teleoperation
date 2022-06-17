@@ -1,0 +1,20 @@
+<launch>
+    <group>
+            <include file="$(find allegro_hand_kdl)/launch/gravity_compensate.launch">
+            <!-- <arg name='TORQUE_TOPIC' value='/allegroHand_0/torque_cmd'/> -->
+            </include>
+            
+            <include file="$(find allegro_hand_kdl)/launch/pose_action_server.launch">
+                
+                <arg name="NUM" value="0"/>
+                <!-- <arg name="HAND" value="right"/> -->
+                <arg name="HAND" value="right" if="$(eval arg('left_handed') == false)"/>
+                <arg name="HAND" value="left" if="$(eval arg('left_handed') == true)"/>
+                <arg name="TIME_LIMIT" value="4.0" />
+                <arg name="TORQUE_TOPIC" value="position_torque"/>
+                
+            </include>
+            
+            <include file="$(find allegro_hand_kdl)/launch/combine_torques.launch"/>
+    </group>
+</launch>

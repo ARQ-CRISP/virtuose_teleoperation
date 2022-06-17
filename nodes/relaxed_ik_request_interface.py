@@ -6,6 +6,6 @@ from virtuose_teleoperation.src.virtuose_teleoperation.arm.relaxed_ik_connection
 if __name__ == '__main__':
     rospy.init_node('ur_relaxed_connector')
     
-    IK_Solution_Manager()
+    solution_manager = IK_Solution_Manager()
     
     rospy.spin()

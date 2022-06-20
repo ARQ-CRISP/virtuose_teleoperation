@@ -11,9 +11,9 @@
   <!-- <arg name="record_state" default="true" /> -->
   <arg name="all_data" default="false" />
   <!-- <arg name="bag_path" default="/home/bespin"/> -->
-  <arg name="obj" default="lateral_right"/>
+  <arg name="obj" default="right"/>
 
-  <arg name="bag_path" default="/home/hair/catkin_ws_teleoperation/src/virtuose_teleoperation/record/$(arg obj)"/>
+  <arg name="bag_path" default="/home/hair/catkin_ws_teleoperation/src/virtuose_teleoperation/record/TRANSLATIONS_SECOND_ATTEMPT"/>
 
   <arg name="mode" default="single"/>
 

@@ -11,9 +11,10 @@
   <!-- <arg name="record_state" default="true" /> -->
   <arg name="all_data" default="false" />
   <!-- <arg name="bag_path" default="/home/bespin"/> -->
-  <arg name="bag_path" default="/media/bespin/DataDrive/grasp_data_collection"/>
+  <arg name="obj" default="lateral_right"/>
 
-  <arg name="obj" default="obj1"/>
+  <arg name="bag_path" default="/home/hair/catkin_ws_teleoperation/src/virtuose_teleoperation/record/$(arg obj)"/>
+
   <arg name="mode" default="single"/>
 
  <!-- Are we on the robot (hrp2_14) or simulating (sim)? -->
@@ -25,18 +26,18 @@
  <!-- </include> -->
 
  <node pkg="rosbag" type="record" name="rosbag_record_EVERYTHING"
-       args="record -o $(arg bag_path)/grasp_data_$(arg obj)_$(arg mode)  /kinect2/sd/image_depth/compressed /kinect2/sd/camera_info /kinect2/hd/image_color/compressed /kinect2/hd/camera_info /leap_motion/leap_device /leap_motion/leap_filtered /leap_motion/visualization_marker_array /optoforce_wrench_0 /optoforce_wrench_1 /optoforce_wrench_2 /optoforce_wrench_3  /relaxed_ik/joint_angle_solutions /ur5/joint_states /joint_states /allegroHand_0/joint_cmd /allegroHand_0/joint_states /tf /tf_static"
+       args="record -o $(arg bag_path)/$(arg obj) /out_virtuose_physical_pose /relaxed_ik/ee_pose_goals /relaxed_ik/joint_angle_solutions "
        if="$(arg all_data)" />
 
- <node pkg="rosbag" type="record" name="rosbag_record_sensors"
-       args="record -o $(arg bag_path)/camera_data_$(arg obj)_$(arg mode)  /kinect2/sd/image_depth/compressed /kinect2/hd/image_depth/compressed /kinect2/sd/camera_info /kinect2/sd/image_color/compressed /kinect2/hd/image_color/compressed /kinect2/hd/camera_info /leap_motion/leap_device /leap_motion/leap_filtered /leap_motion/visualization_marker_array /optoforce_wrench_0 /optoforce_wrench_1 /optoforce_wrench_2 /optoforce_wrench_3 /tf /tf_static"
+ <node pkg="rosbag" type="record" name="rosbag_record_out_virtuose_physical_pose_forward"
+       args="record -o $(arg bag_path)/$(arg obj)__out_virtuose_physical_pose /out_virtuose_physical_pose"
        unless="$(arg all_data)" />
 
- <node pkg="rosbag" type="record" name="rosbag_record_joint_states"
-       args="record -o $(arg bag_path)/robot_state_$(arg obj)_$(arg mode) /relaxed_ik/joint_angle_solutions /ur5/joint_states /joint_states /allegroHand_0/joint_cmd /allegroHand_0/joint_states /tf /tf_static"
+ <node pkg="rosbag" type="record" name="rosbag_record_relaxed_ik_ee_pose_goals"
+       args="record -o $(arg bag_path)/$(arg obj)__relaxed_ik_ee_pose_goals /relaxed_ik/ee_pose_goals"
        unless="$(arg all_data)" />
 
- <node pkg="rosbag" type="record" name="rosbag_record_allegro"
-       args="record -o $(arg bag_path)/allegro_$(arg obj)_$(arg mode) /allegroHand_0/joint_cmd /allegroHand_0/joint_states /allegroHand_0/lib_cmd /allegroHand_0/torque_cmd"/>   
-
+ <node pkg="rosbag" type="record" name="rosbag_record_relaxed_ik_joint_angle_solutions"
+       args="record -o $(arg bag_path)/$(arg obj)__relaxed_ik_joint_angle_solutions /relaxed_ik/joint_angle_solutions"
+       unless="$(arg all_data)" />   
 </launch>

@@ -1,0 +1,1 @@
+The files contained in TRANSLATIONS are the records of the translation movements of the Virtuose. They can be used to program a virtual controller(keyboard, joypad,...) to avoid using the physical Virtuose

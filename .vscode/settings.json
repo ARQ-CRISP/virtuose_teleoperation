@@ -1,0 +1,8 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/hair/catkin_ws_teleoperation/devel/lib/python2.7/dist-packages",
+        "/home/hair/ROS-Virtuose/devel/lib/python2.7/dist-packages",
+        "/home/hair/catkin_ws/devel/lib/python2.7/dist-packages",
+        "/opt/ros/melodic/lib/python2.7/dist-packages"
+    ]
+}

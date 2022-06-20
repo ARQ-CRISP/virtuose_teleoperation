@@ -58,6 +58,7 @@ class IK_Solution_Manager:
         # rospy.loginfo("__OnSolutionReceived: " + str(target_joint_state))
         if self.joint_states_safety_check(target_joint_state):
             self.goto(target_joint_state)
+            self.latest_target = target_joint_state
         else:
             rospy.logwarn('Received unsafe solution! waiting for next one...')
         
@@ -90,7 +91,7 @@ class IK_Solution_Manager:
         #TODO: target_msg.header.frame_id = '' 
         target_msg.position = target_joint_state.tolist()
         
-        rospy.loginfo("going to: " + str(target_joint_state))
+        rospy.loginfo("going to: " + str(target_joint_state.round(3)))
         self.joint_publisher.publish(target_msg)
         
         

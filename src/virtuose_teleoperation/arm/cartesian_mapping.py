@@ -69,14 +69,14 @@ class Cartesian_Mapping:
         #Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
         #Frame(rot, pos): Construct a frame from a rotation and a vector
         orient_bias = Frame(Rotation.Quaternion(*rot), Vector())
-        print("Rotation.Quaternion(*rot)",Rotation.Quaternion(*rot))
-        print("orient_bias",orient_bias)
+        # print("Rotation.Quaternion(*rot)",Rotation.Quaternion(*rot))
+        # print("orient_bias",orient_bias)
         orient_bias2 = Frame(Rotation.Quaternion(*rot2), Vector())######
-        print("orient_bias.Inverse()",orient_bias.Inverse())
+        # print("orient_bias.Inverse()",orient_bias.Inverse())
 
         #Hamilton product H(a, b) https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion
         new_pose = orient_bias * pose * orient_bias.Inverse()
-        print("new_pose",new_pose)
+        # print("new_pose",new_pose)
         new_pose = orient_bias2 * new_pose * orient_bias2.Inverse()
         
         return new_pose
@@ -99,7 +99,7 @@ class Cartesian_Mapping:
             ee_pose_goals_msg = EEPoseGoals()
             target = Frame()
             target.p = self.init_pose.p - self.latest_pose.p
-            target.M = current_pose.M
+            target.M = Rotation() #current_pose.M
             ee_pose_goals_msg.ee_poses.append(pm.toMsg(target))
             self.ee_pose_goals_pub.publish(ee_pose_goals_msg)
         else:

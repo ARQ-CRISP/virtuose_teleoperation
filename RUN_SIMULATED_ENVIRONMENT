@@ -1,0 +1,6 @@
+source devel/setup.bash
+roslaunch virtuose_teleoperation relaxed_teleop.launch 
+
+rosrun virtuose_teleoperati relaxed_cartesian_mapping.py 
+
+time rosbag play --immediate TRANSLATIONS_SECOND_ATTEMPT/forward__out(tab tab)

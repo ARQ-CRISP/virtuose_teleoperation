@@ -18,7 +18,7 @@ from copy import deepcopy
 def fromTransform(msg):
     pose = Frame()
     pose.p = Vector(msg.translation.x, msg.translation.y, msg.translation.z)
-    pose.m = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)
+    pose.m = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
     return pose
 
 # def qv_mult(q1, v1):
@@ -50,22 +50,33 @@ class Cartesian_Mapping:
         """
         # rot = [ 0, 0.7071068, 0, 0.7071068 ] # 90 deg on y axis
         # rot = [ 0, -0.7071068, 0, 0.7071068 ] # -90 deg on y axis
-        # rot = [ 0, 0, 0, 1 ] # 0 deg on y axis
+        #rot = [ 0, 0, 0, 1 ] # 0 deg on y axis [up->for, forw->down, left->right(if pos_fixed[0] *= -1 )]
         # rot = [ -0.7071068, 0, 0, 0.7071068 ] # -90 deg on x axis
-        rot = [ 0.7071068, 0, 0, 0.7071068 ] # 90 deg on x axis (Best until now) left right swapped
-        # rot = [-0.7071067811865475, 0.7071067811865476, 0 ,0] # supercazzola che funziona da claudio
-        # rot = [-0.7071067811865475, -0.7071067811865476, 0 ,0] # supercazzola che funziona da claudio
-        # rot = [-0.7071067811865475, 0 , 0.7071067811865476 ,0] # supercazzola che funziona da claudio
-        # rot = [-0.7071067811865475, 0 , -0.7071067811865476 ,0] # supercazzola che funziona da claudio
-        # rot = [-0.7071067811865475, 0 , 0, 0.7071067811865476] # supercazzola che funziona da claudio
-        rot = [-0.7071067811865475, 0 , 0, -0.7071067811865476] # supercazzola che funziona da claudio (funziona uguale a -90)
+        rot =[ 0, 0, -0.3826834, 0.9238795 ] #45deg y axis
+        rot = [ 0, -0.3420201, 0, 0.9396926 ]# -40 deg y axis
+        #[ 0, 0.3826834, 0, 0.9238795 ]
+        rot2 = [ 0.7071068, 0, 0, 0.7071068 ] # 90 deg on x axis (Best until now) left right swapped
         
-        rot2 = [ 0, 1, 0, 0 ]
+        # rot = [-0.7071067811865475, 0.7071067811865476, 0 ,0] # 
+        # rot = [-0.7071067811865475, -0.7071067811865476, 0 ,0] # 
+        # rot = [-0.7071067811865475, 0 , 0.7071067811865476 ,0] # 
+        # rot = [-0.7071067811865475, 0 , -0.7071067811865476 ,0] # 
+        # rot = [-0.7071067811865475, 0 , 0, 0.7071067811865476] # 
+        #rot = [-0.7071067811865475, 0 , 0, -0.7071067811865476] #  (funziona uguale a -90)
         
+        #rot2 = [ 0, 1, 0, 0 ]
+        
+        #Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
+        #Frame(rot, pos): Construct a frame from a rotation and a vector
         orient_bias = Frame(Rotation.Quaternion(*rot), Vector())
-        orient_bias2 = Frame(Rotation.Quaternion(*rot2), Vector())
-        
+        print("Rotation.Quaternion(*rot)",Rotation.Quaternion(*rot))
+        print("orient_bias",orient_bias)
+        orient_bias2 = Frame(Rotation.Quaternion(*rot2), Vector())######
+        print("orient_bias.Inverse()",orient_bias.Inverse())
+
+        #Hamilton product H(a, b) https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion
         new_pose = orient_bias * pose * orient_bias.Inverse()
+        print("new_pose",new_pose)
         new_pose = orient_bias2 * new_pose * orient_bias2.Inverse()
         
         return new_pose
@@ -76,9 +87,12 @@ class Cartesian_Mapping:
         # msg = out_virtuose_physical_pose()
         # rospy.loginfo('received Haption data')
         current_pose = fromTransform(msg.virtuose_physical_pose)
+        print("current_pose_BEFORE", current_pose)
+
         current_pose = self.transform_pose(current_pose)
+        print("current_pose_AFTER", current_pose)
         pos_fixed = list(current_pose.p)
-        pos_fixed[2] *= -1
+        pos_fixed[0] *= -1
         current_pose.p = Vector(*pos_fixed)
         # current_pose.p 
         if self.init_pose is not None:

@@ -53,7 +53,7 @@ class Cartesian_Mapping:
         #rot = [ 0, 0, 0, 1 ] # 0 deg on y axis [up->for, forw->down, left->right(if pos_fixed[0] *= -1 )]
         # rot = [ -0.7071068, 0, 0, 0.7071068 ] # -90 deg on x axis
         rot =[ 0, 0, -0.3826834, 0.9238795 ] #45deg y axis
-        rot = [ 0, -0.3420201, 0, 0.9396926 ]# -40 deg y axis
+        rot = [ 0, 0.3420201, 0, 0.9396926 ]# -40 deg y axis
         #[ 0, 0.3826834, 0, 0.9238795 ]
         rot2 = [ 0.7071068, 0, 0, 0.7071068 ] # 90 deg on x axis (Best until now) left right swapped
         

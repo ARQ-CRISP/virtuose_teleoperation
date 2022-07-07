@@ -1,6 +1,7 @@
+cd catkin_ws_teleoperation/
 source devel/setup.bash
 roslaunch virtuose_teleoperation relaxed_teleop.launch 
 
 rosrun virtuose_teleoperation relaxed_cartesian_mapping.py 
 
-time rosbag play --immediate TRANSLATIONS_SECOND_ATTEMPT/forward__out(tab tab)
+time rosbag play --immediate TRANSLATIONS_SECOND_ATTEMPT/forward__out

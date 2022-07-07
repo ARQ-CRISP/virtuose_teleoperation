@@ -18,7 +18,11 @@ from copy import deepcopy
 def fromTransform(msg):
     pose = Frame()
     pose.p = Vector(msg.translation.x, msg.translation.y, msg.translation.z)
-    pose.m = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
+    pose.M = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
+    
+    ###TO INCLUDE ORIENTATION FROM APTION
+    #pose.M = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
+    #print("pose.m",pose.M)
     return pose
 
 # def qv_mult(q1, v1):
@@ -48,37 +52,35 @@ class Cartesian_Mapping:
         Returns:
             PyKDL.Frame: Pose adapted for teleoperation
         """
-        # rot = [ 0, 0.7071068, 0, 0.7071068 ] # 90 deg on y axis
-        # rot = [ 0, -0.7071068, 0, 0.7071068 ] # -90 deg on y axis
-        #rot = [ 0, 0, 0, 1 ] # 0 deg on y axis [up->for, forw->down, left->right(if pos_fixed[0] *= -1 )]
-        # rot = [ -0.7071068, 0, 0, 0.7071068 ] # -90 deg on x axis
-        rot =[ 0, 0, -0.3826834, 0.9238795 ] #45deg y axis
-        rot = [ 0, 0.3420201, 0, 0.9396926 ]# -40 deg y axis
-        #[ 0, 0.3826834, 0, 0.9238795 ]
-        rot2 = [ 0.7071068, 0, 0, 0.7071068 ] # 90 deg on x axis (Best until now) left right swapped
-        
-        # rot = [-0.7071067811865475, 0.7071067811865476, 0 ,0] # 
-        # rot = [-0.7071067811865475, -0.7071067811865476, 0 ,0] # 
-        # rot = [-0.7071067811865475, 0 , 0.7071067811865476 ,0] # 
-        # rot = [-0.7071067811865475, 0 , -0.7071067811865476 ,0] # 
-        # rot = [-0.7071067811865475, 0 , 0, 0.7071067811865476] # 
-        #rot = [-0.7071067811865475, 0 , 0, -0.7071067811865476] #  (funziona uguale a -90)
-        
-        #rot2 = [ 0, 1, 0, 0 ]
-        
+        rot = [ 0.7071068, 0, 0, 0.7071068 ] # 90 deg on x axis required to match ur5
+        """ It is calculated as 45(angle of rotation of the handel) 
+        minus 15(angle between the axis parallel to lateral axis of UR5)
+        """
+        rot2 =[0, 0.1305262, 0, 0.9914449] #15 deg on y axis depends on the orientation of Virtuose respect to the table.
+    
+    #MODIFY HERE TO REGULATE THE ANGULAR OFFSET BETWEEN UR5 AND VIRTUOSE
+        #to adjust the rot3 matrix, you need to use the green tablepad or another ortogonal reference
+        #forward->-z  #right->x #up->y
+        #you can read the cartesian position from:  rostopic echo /relaxed_ik/ee_pose_goals 
+        rot3 = [ 0, 0.0784591, 0, 0.9969173 ] #9 MORE DEG ON Y AXIS
+
+
         #Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
         #Frame(rot, pos): Construct a frame from a rotation and a vector
         orient_bias = Frame(Rotation.Quaternion(*rot), Vector())
-        print("Rotation.Quaternion(*rot)",Rotation.Quaternion(*rot))
-        print("orient_bias",orient_bias)
-        orient_bias2 = Frame(Rotation.Quaternion(*rot2), Vector())######
-        print("orient_bias.Inverse()",orient_bias.Inverse())
+
+        orient_bias2 = Frame(Rotation.Quaternion(*rot2), Vector())#######
+        orient_bias3 = Frame(Rotation.Quaternion(*rot3), Vector())#######
+
 
         #Hamilton product H(a, b) https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion
         new_pose = orient_bias * pose * orient_bias.Inverse()
-        print("new_pose",new_pose)
-        new_pose = orient_bias2 * new_pose * orient_bias2.Inverse()
-        
+
+        #print("new_pose.p",new_pose.p)
+        #print("new_pose.M",new_pose.M)
+        new_pose = orient_bias2 * new_pose * orient_bias2.Inverse()#rot2 can be included in rot3 not particular meaning
+        new_pose = orient_bias3 * new_pose * orient_bias2.Inverse()
+
         return new_pose
 
     
@@ -87,21 +89,33 @@ class Cartesian_Mapping:
         # msg = out_virtuose_physical_pose()
         # rospy.loginfo('received Haption data')
         current_pose = fromTransform(msg.virtuose_physical_pose)
-        print("current_pose_BEFORE", current_pose)
+        #print("current_pose_BEFORE", current_pose)
 
         current_pose = self.transform_pose(current_pose)
-        print("current_pose_AFTER", current_pose)
+        #print("current_pose_AFTER", current_pose)
         pos_fixed = list(current_pose.p)
         pos_fixed[0] *= -1
         current_pose.p = Vector(*pos_fixed)
+        #print("current_pose.m",current_pose.M)
         # current_pose.p 
         if self.init_pose is not None:
             ee_pose_goals_msg = EEPoseGoals()
             target = Frame()
             target.p = self.init_pose.p - self.latest_pose.p
-            target.M = current_pose.M
+            target.M = Rotation()
+            #target.M = Rotation.Quaternion(*[-0.7071068, 0, 0, 0.7071068 ] ) #-90 x axis
+            #target.M = Rotation.Quaternion(*[0, -0.7071068, 0, 0.7071068 ] ) #-90 y axis
+            #target.M = Rotation.Quaternion(*[-0.6214175, 0.3374022, 0.3374022, 0.6214175] ) #-90 0 57 xyz axis
+            
+            #target.M = Rotation.Quaternion(*[-0.5, -0.5, 0.5, 0.5  ] ) #-90 x axis -90 y axis
+            #target.M = Rotation.Quaternion(*[0, 0.7071068, 0 , 0.7071068  ] ) #-90 x axis 180 y axis
+             
+            # target.M = Rotation.Quaternion(*[ -0.6335811, -0.6335811, 0, 0.4440158 ]) #  -90x -90y
+            #current_pose.M * Rotation.Quaternion()
+            #print("current_pose.M",current_pose.M)
             ee_pose_goals_msg.ee_poses.append(pm.toMsg(target))
             self.ee_pose_goals_pub.publish(ee_pose_goals_msg)
+            
         else:
             self.init_pose = current_pose
             

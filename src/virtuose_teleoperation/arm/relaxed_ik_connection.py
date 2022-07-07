@@ -30,13 +30,15 @@ class IK_Solution_Manager:
     def __init__(self, init_state=None):
 
         self.solution_listener = rospy.Subscriber(self.relaxed_ik_solutions_topic, JointAngles, self.__OnSolutionReceived, queue_size=1)
+        self.ik_pose_goals_listener = rospy.Subscriber(self.relaxed_ik_pose_goals_topic, EEPoseGoals, self.__OnPoseGoalsRepuber,queue_size=1)
+
         self.joint_state_listener = rospy.Subscriber(self.joint_listener_topic, JointState, self.__OnJointStateReceived, queue_size=1)
         
         
         self.joint_publisher = rospy.Publisher(self.moveit_controller_joint_states_topic, JointState,queue_size=5)
         self.joint_publisher2 = rospy.Publisher(self.moveit_controller_joint_states_topic2, JointState,queue_size=5)
 
-        self.current_pose_pub = rospy.Publisher(self.current_pose_topic, String, queue_size=5)########
+        self.current_pose_pub = rospy.Publisher(self.current_pose_topic, PoseStamped, queue_size=5)########
 
 
         if init_state is None:
@@ -68,12 +70,6 @@ class IK_Solution_Manager:
         current_joint_state_msg.position = new_state2.tolist()
         self.joint_publisher2.publish(current_joint_state_msg)
 
-        # JOINT_POSITION MSG published on '/cartesian_pose_UR5'
-        current_joint_position_msg =String()
-        current_joint_position_msg = str(current_joint_state_msg.position[16:19])
-        self.current_pose_pub.publish(current_joint_position_msg)
-
-
 
         # rospy.loginfo("__OnSolutionReceived: " + str(new_state))
 
@@ -96,8 +92,21 @@ class IK_Solution_Manager:
         else:
             rospy.logwarn('Received unsafe solution! waiting for next one...')
 
+    def __OnPoseGoalsRepuber(self,goals_msg):
+        """
+        This convert the RelaxedIk goal msg from EEPoseGoals to PoseStamped
+        """
+        current_pose_goals_msg = PoseStamped()
+        current_pose_goals_msg.header.stamp = rospy.Time.now()
+        current_pose_goals_msg.pose.position.x = goals_msg.ee_poses[0].position.x
+        current_pose_goals_msg.pose.position.y = goals_msg.ee_poses[0].position.y
+        current_pose_goals_msg.pose.position.z = goals_msg.ee_poses[0].position.z
+        current_pose_goals_msg.pose.orientation.x = goals_msg.ee_poses[0].orientation.x
+        current_pose_goals_msg.pose.orientation.y = goals_msg.ee_poses[0].orientation.y
+        current_pose_goals_msg.pose.orientation.z = goals_msg.ee_poses[0].orientation.z
+        current_pose_goals_msg.pose.orientation.w = goals_msg.ee_poses[0].orientation.w
+        self.current_pose_pub.publish(current_pose_goals_msg)
 
-        
     def joint_states_safety_check(self, joint_state):
         """This method checks if the target joint state is safe.
         This check is performed on the displacement between the target joint state and the current joint state.
@@ -135,3 +144,21 @@ class IK_Solution_Manager:
     
     
     
+        """
+        [relaxed_ik/EEPoseGoals]:
+        std_msgs/Header header
+        uint32 seq
+        time stamp
+        string frame_id
+        geometry_msgs/Pose[] ee_poses
+        geometry_msgs/Point position
+            float64 x
+            float64 y
+            float64 z
+        geometry_msgs/Quaternion orientation
+            float64 x
+            float64 y
+            float64 z
+            float64 w
+
+        """

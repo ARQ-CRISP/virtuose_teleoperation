@@ -56,28 +56,25 @@ class Cartesian_Mapping:
         """ It is calculated as 45(angle of rotation of the handel) 
         minus 15(angle between the axis parallel to lateral axis of UR5)
         """
-        rot2 =[0, 0.1305262, 0, 0.9914449] #15 deg on y axis depends on the orientation of Virtuose respect to the table.
-    
-    #MODIFY HERE TO REGULATE THE ANGULAR OFFSET BETWEEN UR5 AND VIRTUOSE
+
+        #MODIFY HERE TO REGULATE THE ANGULAR OFFSET BETWEEN UR5 AND VIRTUOSE
         #to adjust the rot3 matrix, you need to use the green tablepad or another ortogonal reference
         #forward->-z  #right->x #up->y
-        #you can read the cartesian position from:  rostopic echo /relaxed_ik/ee_pose_goals 
-        rot3 = [ 0, 0.0784591, 0, 0.9969173 ] #9 MORE DEG ON Y AXIS
+        #you can read the cartesian position from:  rostopic echo /relaxed_ik/ee_pose_goals
+        #online 3D Rotation Converter: https://www.andre-gaschler.com/rotationconverter/ 
+        rot2 =[0, 0.2079117, 0, 0.9781476] #24 deg on y axis on 3D Rotation Converter depends on the orientation of Virtuose respect to the table.
+    
 
 
         #Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
         #Frame(rot, pos): Construct a frame from a rotation and a vector
         orient_bias = Frame(Rotation.Quaternion(*rot), Vector())
-        # print("Rotation.Quaternion(*rot)",Rotation.Quaternion(*rot))
-        # print("orient_bias",orient_bias)
         orient_bias2 = Frame(Rotation.Quaternion(*rot2), Vector())######
-        # print("orient_bias.Inverse()",orient_bias.Inverse())
 
         #Hamilton product H(a, b) https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion
         new_pose = orient_bias * pose * orient_bias.Inverse()
-        # print("new_pose",new_pose)
         new_pose = orient_bias2 * new_pose * orient_bias2.Inverse()
-        
+
         return new_pose
 
     

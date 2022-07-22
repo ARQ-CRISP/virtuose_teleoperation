@@ -7,9 +7,9 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose, PoseStamped
 from relaxed_ik.msg import EEPoseGoals, JointAngles
 import rospy
-
+from tf_conversions import fromTf, toMsg
+import tf2_ros
 import numpy as np
-
 
 
 class IK_Solution_Manager:
@@ -18,6 +18,8 @@ class IK_Solution_Manager:
               'wrisensor_msgs.msgst_1_joint', 'wrist_2_joint', 'wrist_3_joint']
     
     relaxed_ik_pose_goals_topic = '/relaxed_ik/ee_pose_goals'
+    relaxed_ik_pose_goals_topic_anti='/ee_pose_goals_anti'
+    
     relaxed_ik_solutions_topic = '/relaxed_ik/joint_angle_solutions'
     
     joint_listener_topic = '/joint_states'
@@ -25,21 +27,23 @@ class IK_Solution_Manager:
     moveit_controller_joint_states_topic = '/move_group/fake_controller_joint_states'
     moveit_controller_joint_states_topic2 = '/move_group/fake_controller_joint_states2'
 
-    current_pose_topic='/cartesian_pose_UR5' ########
+    current_pose_topic='/cartesian_pose_UR5' ######## without anti rotation
+
+    ##  out_virtuose_physical_pose corresponds in ur5 anti  (-xV=-xUR5; +yV=+zUR5; +zV=+yUR5)
+
+    current_pose_topic_anti='/cartesian_pose_UR5_anti' ####THIS IS THE ONE WITH ANTI ROTATION TO BE COMPATIBLE WITH THE VIRTUOSE AXIS
 
     def __init__(self, init_state=None):
 
         self.solution_listener = rospy.Subscriber(self.relaxed_ik_solutions_topic, JointAngles, self.__OnSolutionReceived, queue_size=1)
-        self.ik_pose_goals_listener = rospy.Subscriber(self.relaxed_ik_pose_goals_topic, EEPoseGoals, self.__OnPoseGoalsRepuber,queue_size=1)
-
         self.joint_state_listener = rospy.Subscriber(self.joint_listener_topic, JointState, self.__OnJointStateReceived, queue_size=1)
-        
-        
+        self.ik_pose_goals_listener = rospy.Subscriber(self.relaxed_ik_pose_goals_topic, EEPoseGoals, self.__OnPoseGoalsRepuber,queue_size=1)
+        self.ik_pose_goals_listener_anti = rospy.Subscriber(self.relaxed_ik_pose_goals_topic_anti, EEPoseGoals, self.__OnPoseGoalsRepuber_anti,queue_size=1)
+
         self.joint_publisher = rospy.Publisher(self.moveit_controller_joint_states_topic, JointState,queue_size=5)
         self.joint_publisher2 = rospy.Publisher(self.moveit_controller_joint_states_topic2, JointState,queue_size=5)
-
-        self.current_pose_pub = rospy.Publisher(self.current_pose_topic, PoseStamped, queue_size=5)########
-
+        self.current_pose_pub = rospy.Publisher(self.current_pose_topic, PoseStamped, queue_size=5) #CARTESIAN 
+        self.current_pose_pub_anti = rospy.Publisher(self.current_pose_topic_anti, PoseStamped, queue_size=5) #CARTESIAN 
 
         if init_state is None:
             self.current_joint_state = np.zeros(6)
@@ -71,8 +75,7 @@ class IK_Solution_Manager:
         self.joint_publisher2.publish(current_joint_state_msg)
 
 
-        # rospy.loginfo("__OnSolutionReceived: " + str(new_state))
-
+        #rospy.loginfo("__OnSolutionReceived: " + str(new_state))
         #rospy.loginfo("__OnJointStateReceived: ") #+ str(new_state))
         
         
@@ -81,7 +84,7 @@ class IK_Solution_Manager:
         ik_solution_msg: (relaxed_ik.msg.JointAngles): The JointAngles solution message defined by RelaxedIK
         """
         # np.asarray(ik_solution_msg.angles.data)
-        
+
         # get target position data
         target_joint_state = np.asarray(ik_solution_msg.angles.data)
         # Here we define what happens every time RelaxedIK generates a solution
@@ -89,8 +92,19 @@ class IK_Solution_Manager:
         if self.joint_states_safety_check(target_joint_state):
             self.goto(target_joint_state)
             self.latest_target = target_joint_state
+            
         else:
             rospy.logwarn('Received unsafe solution! waiting for next one...')
+       # 
+        #tf_buffer = tf2_ros.Buffer(rospy.Duration(1), True)
+        #tf_listener = tf2_ros.TransformListener(tf_buffer)
+        #joint_target_publisher = rospy.Publisher('/move_group/fake_controller_joint_states', JointState, queue_size=1)
+
+        #p0_transform = tf_buffer.lookup_transform('hand_root', 'world', rospy.Time.now)
+        #world_p0_list = [p0_transform.transform.translation.x, p0_transform.transform.translation.y, p0_transform.transform.translation.z] +\
+        #    [p0_transform.transform.rotation.x, p0_transform.transform.rotation.y, p0_transform.transform.rotation.z, p0_transform.transform.rotation.w]
+        #world_p0_list = np.asarray(world_p0_list)
+        #print(world_p0_list)
 
     def __OnPoseGoalsRepuber(self,goals_msg):
         """
@@ -106,6 +120,21 @@ class IK_Solution_Manager:
         current_pose_goals_msg.pose.orientation.z = goals_msg.ee_poses[0].orientation.z
         current_pose_goals_msg.pose.orientation.w = goals_msg.ee_poses[0].orientation.w
         self.current_pose_pub.publish(current_pose_goals_msg)
+
+    def __OnPoseGoalsRepuber_anti(self,goals_msg_anti):
+        """
+        This convert the RelaxedIk goal msg from EEPoseGoals to PoseStamped
+        """
+        current_pose_goals_msg_anti = PoseStamped()
+        current_pose_goals_msg_anti.header.stamp = rospy.Time.now()
+        current_pose_goals_msg_anti.pose.position.x = goals_msg_anti.ee_poses[0].position.x
+        current_pose_goals_msg_anti.pose.position.y = goals_msg_anti.ee_poses[0].position.y
+        current_pose_goals_msg_anti.pose.position.z = goals_msg_anti.ee_poses[0].position.z
+        current_pose_goals_msg_anti.pose.orientation.x = goals_msg_anti.ee_poses[0].orientation.x
+        current_pose_goals_msg_anti.pose.orientation.y = goals_msg_anti.ee_poses[0].orientation.y
+        current_pose_goals_msg_anti.pose.orientation.z = goals_msg_anti.ee_poses[0].orientation.z
+        current_pose_goals_msg_anti.pose.orientation.w = goals_msg_anti.ee_poses[0].orientation.w
+        self.current_pose_pub_anti.publish(current_pose_goals_msg_anti)
 
     def joint_states_safety_check(self, joint_state):
         """This method checks if the target joint state is safe.
@@ -140,9 +169,6 @@ class IK_Solution_Manager:
         
         
         
-        
-    
-    
     
         """
         [relaxed_ik/EEPoseGoals]:

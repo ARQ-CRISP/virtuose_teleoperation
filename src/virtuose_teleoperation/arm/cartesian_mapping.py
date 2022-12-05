@@ -8,6 +8,8 @@ from PyKDL import Frame, Rotation, Vector
 from geometry_msgs.msg import PoseStamped, Vector3Stamped, QuaternionStamped, Pose
 from tf.transformations import quaternion_multiply, quaternion_conjugate
 import tf_conversions.posemath as pm
+from tf_conversions import fromTf, toMsg
+import tf2_ros
 
 from scipy.spatial.transform.rotation import Rotation as R
 import rospy
@@ -20,10 +22,19 @@ def fromTransform(msg):
     pose.p = Vector(msg.translation.x, msg.translation.y, msg.translation.z)
     pose.M = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
     
-    ###TO INCLUDE ORIENTATION FROM APTION
+    ###TO INCLUDE ORIENTATION FROM HAPTION
     #pose.M = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
     #print("pose.m",pose.M)
     return pose
+
+def fromPoseStamped(msg):
+    pose = Frame()
+    #msg=PoseStamped()
+    pose.p = Vector(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
+    pose.M = Rotation.Quaternion(msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
+    return pose
+
+
 
 # def qv_mult(q1, v1):
 #     # comment this out if v1 doesn't need to be a unit vector
@@ -34,15 +45,34 @@ def fromTransform(msg):
 #         tf.transformations.quaternion_multiply(q1, q2), 
 #         tf.transformations.quaternion_conjugate(q1)
 #     )[:3]
+def transform_to_vec(T):
+    t = T.transform.translation
+    r = T.transform.rotation
+    return [[t.x, t.y, t.z], [r.x, r.y, r.z, r.w]]
 
 class Cartesian_Mapping:
+
     def __init__(self, init_pose=None):
+     
         self.virtuose_sub = rospy.Subscriber("/out_virtuose_physical_pose", out_virtuose_physical_pose, self.callback) #rosmsg show out_virtuose_physical_pose 
+        self.ee_pose_ur5_sub = rospy.Subscriber("/cartesian_pose_UR5", PoseStamped, self.__OnUR5CartesianPoseReceived)
+
         self.ee_pose_goals_pub = rospy.Publisher('/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=5)
+        self.ee_pose_goals_pub_anti = rospy.Publisher('/ee_pose_goals_anti', EEPoseGoals, queue_size=5)
+
+        self.ee_pose_ur5_antiRotation_pub=rospy.Publisher("/cartesian_pose_antiRotation_UR5", PoseStamped, queue_size=5)
+
+
+
         self.latest_pose = init_pose #if init_pose is not None else Frame()
         self.init_pose = init_pose
+        #self.tf_buffer = tf2_ros.Buffer(rospy.Duration(1), True)
+
+
         rospy.loginfo('Cartesian Mapper: Initialized!')
-      
+
+
+
     def transform_pose(self, pose):
         """method that implements the pose mapping from haption to ur5 frame.
 
@@ -52,49 +82,70 @@ class Cartesian_Mapping:
         Returns:
             PyKDL.Frame: Pose adapted for teleoperation
         """
-        rot = [ 0.7071068, 0, 0, 0.7071068 ] # 90 deg on x axis required to match ur5
+        #ROTATIONS
+
         """ It is calculated as 45(angle of rotation of the handel) 
         minus 15(angle between the axis parallel to lateral axis of UR5)
         """
-        rot2 =[0, 0.1305262, 0, 0.9914449] #15 deg on y axis depends on the orientation of Virtuose respect to the table.
-    
-    #MODIFY HERE TO REGULATE THE ANGULAR OFFSET BETWEEN UR5 AND VIRTUOSE
-        #to adjust the rot3 matrix, you need to use the green tablepad or another ortogonal reference
-        #forward->-z  #right->x #up->y
-        #you can read the cartesian position from:  rostopic echo /relaxed_ik/ee_pose_goals 
-        rot3 = [ 0, 0.0784591, 0, 0.9969173 ] #9 MORE DEG ON Y AXIS
 
+        #Euler angles of multiple axis rotations (degrees)
+        rot = [ 0.7071068, 0, 0, 0.7071068 ] # 90 deg on x axis required to match ur5 
 
+        #MODIFY HERE TO REGULATE THE ANGULAR OFFSET BETWEEN UR5 AND VIRTUOSE
+        """ to adjust the rot3 matrix, you need to use the green tablepad or another ortogonal reference
+        forward->-z  #right->x #up->y
+        you can read the cartesian position from:  rostopic echo /relaxed_ik/ee_pose_goals
+         online 3D Rotation Converter: https://www.andre-gaschler.com/rotationconverter/ 
+        """
+        rot2 =[0, 0.2079117, 0, 0.9781476] #24 deg on y axis on 3D Rotation Converter depends on the orientation of Virtuose respect to the table.
+        #antiROTATION [-0.7017234, -0.1871262, 0, 0.6874359]
         #Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
         #Frame(rot, pos): Construct a frame from a rotation and a vector
         orient_bias = Frame(Rotation.Quaternion(*rot), Vector())
-        # print("Rotation.Quaternion(*rot)",Rotation.Quaternion(*rot))
-        # print("orient_bias",orient_bias)
         orient_bias2 = Frame(Rotation.Quaternion(*rot2), Vector())######
-        # print("orient_bias.Inverse()",orient_bias.Inverse())
 
         #Hamilton product H(a, b) https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion
         new_pose = orient_bias * pose * orient_bias.Inverse()
-        # print("new_pose",new_pose)
         new_pose = orient_bias2 * new_pose * orient_bias2.Inverse()
-        
+        #rot12=[0.6916548, 0.1470158, 0.1470158, 0.6916548] 90 24 0
         return new_pose
 
-    
+    def anti_transform_pose(self, pose):
+        """method that implements the pose mapping from ur5 to haption frame.
+            '/relaxed_ik/ee_pose_goals' and '/ee_pose_goals_anti' must be the same
+        Args:
+            pose (PyKDL.Frame): pose to adapt for the teleoperation
+
+        Returns:
+            PyKDL.Frame: Pose adapted for teleoperation
+        """
+        #ROTATIONS
+        #anti_rot = [ -0.7017234, -0.1871262, 0, 0.6874359 ] # 90 deg on x axis required to match ur5
+        anti_rot =  [         0, -0.2079117, 0, 0.9781476]
+        anti_rot2 = [ -0.7071068, 0, 0, 0.7071068]
+
+        orient_bias = Frame(Rotation.Quaternion(*anti_rot), Vector())
+        orient_bias2 = Frame(Rotation.Quaternion(*anti_rot2), Vector())######
+
+        #Hamilton product H(a, b) https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion
+        new_pose = orient_bias * pose * orient_bias.Inverse()
+        new_pose = orient_bias2 * new_pose * orient_bias2.Inverse()
+        return new_pose
 
     def callback(self, msg):
         # msg = out_virtuose_physical_pose()
         # rospy.loginfo('received Haption data')
         current_pose = fromTransform(msg.virtuose_physical_pose)
-        #print("current_pose_BEFORE", current_pose)
-
         current_pose = self.transform_pose(current_pose)
-        #print("current_pose_AFTER", current_pose)
+        anti_pose=self.anti_transform_pose(current_pose)
         pos_fixed = list(current_pose.p)
         pos_fixed[0] *= -1
         current_pose.p = Vector(*pos_fixed)
-        #print("current_pose.m",current_pose.M)
-        # current_pose.p 
+        #####################
+        pos_fixed_anti = list(anti_pose.p)
+        pos_fixed_anti[0] *= -1
+        anti_pose.p = Vector(*pos_fixed_anti)
+        ####################    
         if self.init_pose is not None:
             ee_pose_goals_msg = EEPoseGoals()
             target = Frame()
@@ -102,14 +153,55 @@ class Cartesian_Mapping:
             target.M = Rotation() #current_pose.M
             ee_pose_goals_msg.ee_poses.append(pm.toMsg(target))
             self.ee_pose_goals_pub.publish(ee_pose_goals_msg)
-            
+
+            ######################
+            ee_pose_anti_msg = EEPoseGoals()
+            anti_target = Frame()
+            anti_target.p = self.init_pose_anti.p - self.latest_pose_anti.p
+            anti_target.M = Rotation() #current_pose.M
+            ee_pose_anti_msg.ee_poses.append(pm.toMsg(target))
+            self.ee_pose_goals_pub_anti.publish(ee_pose_anti_msg)
+            #####################            
         else:
             self.init_pose = current_pose
+            self.init_pose_anti=anti_pose
             
         self.latest_pose = current_pose
-        
-        
-        
+        self.latest_pose_anti = anti_pose
+    
+            
+
+    def __OnUR5CartesianPoseReceived(self,msg):
+        # msg = out_virtuose_physical_pose()
+        # rospy.loginfo('received Haption data')
+        #msgs=PoseStamped()
+
+        current_pose = fromPoseStamped(msg)
+        current_pose = self.anti_transform_pose(current_pose)
+
+        current_pose_goals_msg = PoseStamped()
+
+        current_pose_goals_msg.header.stamp = rospy.Time.now()
+#            print(current_pose.p.x)
+        current_pose_goals_msg.pose.position.x =current_pose.p.x()
+        current_pose_goals_msg.pose.position.y = current_pose.p.y()
+        current_pose_goals_msg.pose.position.z = current_pose.p.z()
+        current_pose_goals_msg.pose.orientation.x = 0
+        current_pose_goals_msg.pose.orientation.y = 0
+        current_pose_goals_msg.pose.orientation.z = 0
+        current_pose_goals_msg.pose.orientation.w = 1
+
+        #p0_transform = self.tf_buffer.lookup_transform('world', 'hand_root', rospy.Time.now())
+        #world_p0_list = [p0_transform.transform.translation.x, p0_transform.transform.translation.y, p0_transform.transform.translation.z] +\
+        #    [p0_transform.transform.rotation.x, p0_transform.transform.rotation.y, p0_transform.transform.rotation.z, p0_transform.transform.rotation.w]
+        #world_p0_list = np.asarray(world_p0_list)
+        #print(world_p0_list)
+
+
+
+        self.ee_pose_ur5_antiRotation_pub.publish(current_pose_goals_msg)
+
+
 
 
 '''

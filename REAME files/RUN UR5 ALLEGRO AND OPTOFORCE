@@ -1,0 +1,54 @@
+RUN THE EXAMPLE OF UR5 ALLEGRO and OPTOFORCE
+
+SIMULATION
+refers to https://github.com/ARQ-CRISP/arq_ur5#simulation-with-allegro-hand
+
+1)roslaunch allegro_hand_kdl allegro_torque.launch sim:=true RVIZ:=false
+
+2)roslaunch ur5_allegro_moveit demo.launch
+
+3)roslaunch arq_ur5 load_scene.launch scene:=bimanual_computers
+
+4)roslaunch allegro_hand_kdl combine_torques.launch
+
+5)roslaunch allegro_hand_kdl pose_action_server.launch TORQUE_TOPIC:=position_torque  (or other controller)
+
+6)rosrun allegro_hand_kdl pose_action_client (example)/ I need to use my code here
+
+OPTOFORCE
+7)https://github.com/ARQ-CRISP/optoforce_publisher
+sudo usermod -a -G dialout $USER
+roslaunch optoforce_publisher optoforce_publisher.launch frame_names:="[my_sensor1, my_sensor2, my_sensor3]"
+
+
+
+
+
+
+REAL ROBOT
+Connect the robot: https://github.com/ARQ-CRISP/arq_ur5/blob/master/docs/connecting.md
+ 
+refers to https://github.com/ARQ-CRISP/arq_ur5
+
+1)roslaunch ur5_allegro_moveit ur5_allegro_bringup.launch robot_ip:=177.22.22.11
+1b)
+Optionally, you can load the robot without the optoforce fingertips using optoforce arg:
+roslaunch ur5_allegro_moveit ur5_allegro_bringup.launch robot_ip:=177.22.22.11 optoforce:=false
+
+Then you can start MoveIt and RViz as below:
+2)roslaunch arq_ur5 moveit_rviz.launch allegro:=true  check tip on the repo
+
+3)roslaunch arq_ur5 load_scene.launch scene:=bimanual_computers
+
+
+
+4)roslaunch allegro_hand_kdl combine_torques.launch
+
+5)roslaunch allegro_hand_kdl pose_action_server.launch TORQUE_TOPIC:=position_torque  (or other controller)
+
+6)rosrun allegro_hand_kdl pose_action_client (example)/ I need to use my code here
+
+OPTOFORCE
+7)https://github.com/ARQ-CRISP/optoforce_publisher
+sudo usermod -a -G dialout $USER
+roslaunch optoforce_publisher optoforce_publisher.launch frame_names:="[my_sensor1, my_sensor2, my_sensor3]"

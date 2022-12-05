@@ -3,5 +3,6 @@ source devel/setup.bash
 roslaunch virtuose_teleoperation relaxed_teleop.launch 
 
 rosrun virtuose_teleoperation relaxed_cartesian_mapping.py 
+roslaunch arq_ur5 load_scene.launch scene:=bimanual_computers
 
 time rosbag play --immediate TRANSLATIONS_SECOND_ATTEMPT/forward__out

@@ -22,8 +22,8 @@ class JointMovementManager(object):
     
     ur_state = namedtuple('UR_State', ('position', 'velocity', 'effort'))
     
-    time_to_target = 1 / 30.
-    update_time = 1 / 15.
+    #time_to_target = 1 / 30.
+    #update_time = 1 / 15.
     
     
     @classmethod
@@ -63,7 +63,7 @@ class JointMovementManager(object):
         # old_jangles = self.last_j_state_target
         old_jangles = np.asarray((self.current_j_state.position))
         dist = np.absolute((np.asarray(j_target) - np.asarray(old_jangles)))
-        T = rospy.Duration(dist.max()/(np.pi/20.))
+        T = rospy.Duration(dist.max()/(np.pi/20.))##################################
         velocity = ((np.asarray(j_target) - np.asarray(old_jangles)) / T.to_sec()).tolist()
         if np.any(dist > 1e-3):
             target = self.define_trajectory(j_target, velocity, T)
@@ -214,7 +214,8 @@ if __name__ == '__main__':
     from rospkg.rospack import RosPack  
     rospy.init_node('test')
     relaxed_ik_path = RosPack().get_path('relaxed_ik')
-    relaxed_yaml_filename = rospy.get_param('~relaxed_ik_yaml', default='ur5_allegro_info.yaml')
+    #relaxed_yaml_filename = rospy.get_param('~relaxed_ik_yaml', default='ur5_allegro_info.yaml')
+    relaxed_yaml_filename = rospy.get_param('~relaxed_ik_yaml', default='ur5_allegro_info_VIRTUOSE.yaml')
     yaml_file_path = relaxed_ik_path + '/src/' + '/RelaxedIK/Config/info_files/' + relaxed_yaml_filename
     with open(yaml_file_path) as f:
         yaml_file = yaml.load(f)

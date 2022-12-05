@@ -1,0 +1,16 @@
+run the hand
+
+
+hair@hair--Tower:~/catkin_ws_teleoperation$ roslaunch virtuose_teleoperation relaxed_teleop_realUR5.launch
+
+IF THE DRIVERS DONT APPEAR REINSTALL THEM:
+	cd peak-linux-driver-8.10.2/
+	make clean; make NET=NO_NETDEV_SUPPORT
+	sudo make install
+	sudo /sbin/modprobe pcan
+	cat /proc/pcan
+	ls -l /dev/pcan*
+	sudo ./driver/pcan_make_devices 2
+
+rosrun virtuose_teleoperation pose_action_client_hglove 
+

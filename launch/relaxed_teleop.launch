@@ -11,6 +11,8 @@
             <arg name="info_file_name" value="ur5_allegro_info.yaml"/>            
     </include>
 
+
+
     <include  file="$(find ur5_allegro_moveit)/launch/demo.launch">
         <arg name="rviz" value="false"/>
     </include>

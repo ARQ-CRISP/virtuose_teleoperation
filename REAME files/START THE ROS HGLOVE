@@ -1,0 +1,31 @@
+To run the ros HGLOVE
+
+TERMINAL 1
+cd Haption
+sudo ./calibrate_HGlove_n5
+sudo ./SvcHaptic_HGlove_finger_thumb_n5
+sudo ./SvcHaptic_HGlove_finger_index_n5
+sudo ./SvcHaptic_HGlove_finger_middle_n5
+
+TERMINAL 2 
+roscore
+
+TERMINAL 3
+cd ROS-Virtuose/
+catkin_make
+rosrun virtuose thumb_node
+
+TERMINAL 4
+rosrun damping_field hglove2allegro_thumb 
+
+TERMINAL 5
+rosrun virtuose index_node
+
+TERMINAL 6 #it requires that $rosrun damping_field hglove2allegro_thumb  is working on TERMINAL 4
+rosrun damping_field hglove2allegro_index 
+
+TERMINAL 7
+rosrun virtuose middle_node
+
+TERMINAL 8 #it requires that $rosrun damping_field hglove2allegro_thumb  is working on TERMINAL 4
+rosrun damping_field hglove2allegro_middle 

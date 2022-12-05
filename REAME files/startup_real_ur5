@@ -1,0 +1,9 @@
+Active Payload 2KG
+
+Run Program
+
+FILE-> LOAD PROGRAM
+
+external-control.urp ->(open)
+
+PLAY

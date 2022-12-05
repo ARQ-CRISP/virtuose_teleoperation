@@ -10,7 +10,7 @@ from geometry_msgs.msg import Pose
 import tf.transformations
 
 #this code is bades on pose_action_client_example of Gokhan Solak, an updated version that uses classes is in the same folder
-
+###test
 h_thumb_x = 0.0
 h_thumb_y = 0.0
 h_thumb_z = 0.0

@@ -1,0 +1,35 @@
+Terminal 1
+cd Haption/
+sudo ./calibrate_virtuose_6d_n188_HGlove 
+sudo ./SvcHaptic_virtuose_6d_n188_HGlove
+
+Terminal 2
+cd catkin_ws_teleoperation/
+roslaunch virtuose_teleoperation relaxed_teleop.launch per SIM
+roslaunch virtuose_teleoperation relaxed_teleop_realUR5.launch per REAL robot 
+ 
+Terminal 3
+cd catkin_ws_teleoperation/
+rosrun virtuose_teleoperation relaxed_cartesian_mapping.py
+
+Terminal 4
+rosrun virtuose virtuose_node
+
+Terminal 5
+cd ROS-Virtuose/
+catkin_make 						///Every time that you change a line in the code
+rosrun damping_field damping_field
+
+HGLOVE THUMB
+Terminal 1
+cd Haption/
+sudo ./SvcHaptic_HGlove_finger_thumb_n5
+
+Terminal 2
+cd ROS-Virtuose/
+catkin_make						///Every time that you change a line in the code
+rosrun virtuose thumb_node
+
+Terminal 3 						
+rosrun damping_field hglove2allegro
+

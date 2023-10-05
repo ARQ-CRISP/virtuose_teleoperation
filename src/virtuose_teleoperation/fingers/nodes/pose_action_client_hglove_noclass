@@ -9,7 +9,7 @@ from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControl
 from geometry_msgs.msg import Pose
 import tf.transformations
 
-#this code is bades on pose_action_client_example of Gokhan Solak, an updated version that uses classes is in the same folder
+#this code is based on pose_action_client_example of Gokhan Solak, an updated version that uses classes is in the same folder
 ###test
 h_thumb_x = 0.0
 h_thumb_y = 0.0

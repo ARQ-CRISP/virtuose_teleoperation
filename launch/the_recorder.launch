@@ -1,0 +1,33 @@
+<launch>
+<arg name="bagname"   default="pick_and_place_test"/>
+<arg name="start_time"   default=""/>
+    <!-- <node pkg="rosbag" type="record" name="the_recorder" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /in_virtuose_force /out_index_pose /out_middle_pose /out_thumb_pose /delta_pose_index /delta_pose_middle /delta_pose_thumb /out_virtuose_physical_pose /relaxed_ik/ee_pose_goals /relaxed_ik/joint_angle_solutions /ur5/tf -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" > -->
+
+    <!-- <node pkg="rosbag" type="record" name="the_recorder2" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /delta_articular_middle /delta_articular_index /delta_articular_thumb  -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" >
+        <param name="buffer_size" value="16384"/> 
+        <param name="chunk_size" value="4096"/>
+    </node> -->
+
+  
+    <!-- <node pkg="rosbag" type="record" name="the_recorder" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /delta_articular_middle /delta_articular_index /delta_articular_thumb /relaxed_ik/ee_pose_goals /ur5/tf /crisp_merged_poses  -O /home/hair/rosbag_ICRA2024/$(arg bagname)_$(arg start_time)" > -->
+
+<!-- icra blind -->
+    <!-- <node pkg="rosbag" type="record" name="the_recorder" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /relaxed_ik/ee_pose_goals /ur5/tf /crisp_merged_poses  -O /home/hair/rosbag_ICRA2024/$(arg bagname)_$(arg start_time)" > -->
+    
+        <!-- robot state /relaxed_ik/ee_pose_goals /ur5/tf 
+        Allegro Joint State /allegroHand_0/joint_states
+        Fingetips Positions /crisp_merged_poses
+        Crisp Sensors /Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /xServTopic -->
+
+<!-- LFD topics -->
+    <node pkg="rosbag" type="record" name="the_recorder" args="/relaxed_ik/ee_pose_goals /ur5/tf /allegroHand_0/joint_states /crisp_merged_poses /Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /xServTopic -O /home/hair/rosbag_LFD/$(arg bagname)_$(arg start_time)" >
+        <param name="buffer_size" value="16384"/> 
+        <param name="chunk_size" value="4096"/>
+    </node>
+
+<!-- <node pkg="rosbag" type="record" name="the_recorder" args="/relaxed_ik/ee_pose_goals /ur5/tf -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" output="screen" /> -->
+</launch>
+
+
+   
+<!-- args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /relaxed_ik/ee_pose_goals /ur5/tf /crisp_merged_poses  -O /home/hair/rosbag_ICRA2024/$(arg bagname)_$(arg start_time)" > -->

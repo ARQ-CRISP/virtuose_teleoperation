@@ -1,0 +1,37 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/hair/catkin_ws_teleoperation/devel/include/**",
+        "/home/hair/catkin_ws/devel/include/**",
+        "/home/hair/ROS-Virtuose/devel/include/**",
+        "/opt/ros/melodic/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/allegro-hand-ros/allegro_hand_driver/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/allegro_hand_kdl/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/arq_ur5/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/allegro-hand-ros/bhand/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/Universal_Robots_ROS_Driver/controller_stopper/include/**",
+        "/home/hair/catkin_ws/src/haptic_glove_ros/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/kdl_control_tools/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/optoforce_publisher/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/ros_topic_connector/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/Universal_Robots_ROS_Driver/ur_calibration/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/fmauch_universal_robot/ur_kinematics/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/Universal_Robots_ROS_Driver/ur_robot_driver/include/**",
+        "/home/hair/ROS-Virtuose/src/virtuose/include/**",
+        "/home/hair/catkin_ws_teleoperation/src/virtuose_teleoperation/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

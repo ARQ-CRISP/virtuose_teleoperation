@@ -11,7 +11,7 @@ from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
 import tf.transformations
 
-###to have the cartesian position from joints rosrun allegro_hand_kdl fk_publisher and subrscribe to /pose_array
+###to have the cartesian position from joints rosrun allegro_hand_kdl fk_publisher and subrscribe to /pose_array (thumb, index, middle, ring)
 class PoseActionClient(object):
     cartesian_controller=False
     joints_controller=True
@@ -83,36 +83,16 @@ class PoseActionClient(object):
             a_th=self.delta_articular_th_msg.position[0] #;//lateral//finger pitch//tip pitch
             b_th=self.delta_articular_th_msg.position[1] #;//lateral//finger pitch//tip pitch
             c_th=self.delta_articular_th_msg.position[2] #;//lateral//finger pitch//tip pitch
-            # joint_pose = \
-                # [0.3+a_in, 0.1+b_in, 0.0+b_in*1.8, 0.5+c_in*2,\
-                # 0.3+a_mid, 0.1+b_mid, 0.0+b_mid*1.8, 0.5+c_mid*2,\
-                # 0.4+a_mid, 0.1+b_mid, 0.0+b_mid*1.8, 0.5+c_mid*2,\
-                # 3.14, 0.0-a_th, 0.0+b_th, 0.5+b_th-c_th] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
-                # #1.3, 0.0, -0.3, 1.3]         
-            # print("b_in",b_in)         
-
-            # close thumb to touch the palm
-            # joint_pose = \
-            #     [0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,\
-            #     0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,\
-            #     0.1+a_mid, 0.1+b_mid*1.3, 0.0+b_mid, 0.0+c_mid*0.8,\
-            #     3.14, -0.03-a_th*1.0, 0.0+b_th, 0.0+b_th-c_th] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
-            #     #1.3, 0.0, -0.3, 1.3]       
-
-            #thumb settled for pinching normally
+            print(a_th)
             joint_pose = \
-                [0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,\
-                0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,\
-                0.1+a_mid, 0.1+b_mid*1.3, 0.0+b_mid, 0.0+c_mid*0.8,\
-                3.14, -0.2-a_th*1.0, 0.0+2*b_th, -0.2+0.15*(b_th-c_th)] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
+                [0.2+a_in, 0.6+b_in, 1.0+b_in*0.3, 0.0+c_in,\
+                0.2+a_mid, 0.6+b_mid, 1.0+b_mid*0.3, 0.0+c_mid,\
+                0.2+a_mid, 0.6+b_mid, 1.0+b_mid*0.3, 0.0+c_mid,\
+                1.36, 0.0-a_th, 0.0+b_th, 0.5+b_th-c_th] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
                 #1.3, 0.0, -0.3, 1.3]    
-                #     
-            # joint_pose = \
-            #     [0.0, 0.0, 0.0, 0.0,\
-            #     0.0, 0.0, 0.0, 0.0,\
-            #     0.0, 0.0, 0.0, 0.0,\
-            #     0.0, 0.00, 0.0, 0.0] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
-            #     #1.3, 0.0, -0.3, 1.3]    
+                #1.5-a_th/2, 0.0-a_th, 0.0+b_th, 0.5+b_th-c_th] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
+   
+            # print("b_in",b_in)         
 
             # send the pose to the server
             goal = PoseControlGoal(joint_pose=joint_pose)

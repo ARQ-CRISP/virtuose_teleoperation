@@ -38,7 +38,7 @@ class Arm_Teleop_Input(object):
     def __init__(self, init_pose=None, rotation_bias=None, workspace=None):
         if init_pose is None:
             self.init_pose = Frame(
-               Rotation.Quaternion(*[0.6916548, 0.1470158, 0.1470158, 0.6916548 ]),
+               Rotation.Quaternion(*[-0.7071067811865475, 0.7071067811865476, 0 ,0]),
                 Vector(*[0.200, 0.358, 1.146])) ###non so che serve
         
         elif (isinstance(init_pose, list) or isinstance(init_pose, tuple)) and len(init_pose) == 2:
@@ -58,7 +58,7 @@ class Arm_Teleop_Input(object):
             
         if rotation_bias is None:
             self.rotation_bias = Frame(
-                Rotation.Quaternion())
+                Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0))
         
         elif isinstance(rotation_bias, list) and len(init_pose) == 1:
             self.init_pose = Frame(
@@ -294,16 +294,25 @@ if __name__ == '__main__':
     workspace_bounds = rospy.get_param('ur5_teleop_config/workspace/', default=None)
     
     if workspace_bounds is None:
-        rospy.loginfo('[' + rospy.get_name() + ']' + ' No Workspace Bounds set')
-        workspace_bounds = {'center': [0.0, 0.4, 1.280], 'scale': [0.2] * 3}
-        
+        rospy.logwarn('[' + rospy.get_name() + ']' + ' No Workspace Bounds set')
+        workspace_bounds = {'center': [0.0, 0.4, 1.280], 'scale': [1.2] * 3}
         # workspace = WS_Bounds.from_center_scale([0.242, 0.364, 1.270], [0.2] * 3)
         rospy.set_param('ur5_teleop_config/workspace/', workspace_bounds)
     else:
         rospy.loginfo('[' + rospy.get_name() + ']' + ' workspace_config: {}'.format(workspace_bounds))
     
     # [0.200, 0.358, 1.146]
-    
+    ##pose position: 
+    #   x: 0.0366941496383
+    #   y: 0.478776759326
+    #   z: 1.32369967096
+    # orientation: 
+    #   x: -0.60943361521
+    #   y: -0.352765179461
+    #   z: 0.528194394625
+    #   w: 0.474508248926
+    # init_pose = [0.03, 0.47, 1.32], [0., 0.707, 0., 0.707]
+    # rotation_bias = [-0.7071067811865475, 0.7071067811865476, 0 ,0]
     init_pose = [0.330, 0.358, 1.186], [0., 0.707, 0., 0.707]
     rotation_bias = [-0.7071067811865475, 0.7071067811865476, 0 ,0]
     #rotation_bias = [0.6916548, 0.1470158, 0.1470158, 0.6916548 ]

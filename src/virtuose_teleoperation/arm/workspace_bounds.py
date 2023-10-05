@@ -94,7 +94,9 @@ class WS_Bounds():
         
         
 if __name__ == '__main__':
-    workspace = WS_Bounds([-1, -1, -1], [1., 1., 1.])
+    # workspace = WS_Bounds([-1, -1, -1], [1., 1., 1.])
+    workspace = WS_Bounds([-0.1, -0.1, -0.1], [0.1, 0.1, 0.1])
+
     # ws2 = WS_Bounds.from_center_scale(*workspace.get_center_scale())
     # print(ws2.get_center_scale(), (ws2.start_pt, ws2.end_pt))
     x = 4 * np.random.random((10,3)) - 2.

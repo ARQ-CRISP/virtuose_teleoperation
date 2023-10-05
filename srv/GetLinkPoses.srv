@@ -1,0 +1,7 @@
+# GetLinkPoses.srv
+---
+geometry_msgs/PoseArray link_poses
+bool thumb_threshold_exceeded
+bool index_threshold_exceeded
+bool middle_threshold_exceeded
+bool ring_threshold_exceeded

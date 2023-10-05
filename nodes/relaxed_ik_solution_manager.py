@@ -20,7 +20,7 @@ if __name__ == '__main__':
     relaxed_ik_path = RosPack().get_path('relaxed_ik')
     relaxed_yaml_filename = rospy.get_param('~relaxed_ik_yaml', default='ur5_allegro_info_VIRTUOSE.yaml')
 
-    #workspace_bounds = rospy.get_param('ur5_teleop_config/workspace/', default=None) # HAVE A LOOK AT WS_Bounds Class
+    workspace_bounds = rospy.get_param('ur5_teleop_config/workspace/', default=None) # HAVE A LOOK AT WS_Bounds Class
     is_sim = rospy.get_param('~simulated', default=True)
     
     rospy.loginfo('[' + rospy.get_name() + ']' + ' ik config_file: {}'.format(relaxed_yaml_filename))
@@ -45,11 +45,11 @@ if __name__ == '__main__':
     print('init_state',init_state)
     solution_manager = IK_Solution_Manager(
         init_state,
-        sim=is_sim, 
-        # movegroup='ur5_arm', 
+        sim=is_sim
+        # movegroup='ur5_arm' ,
         # debug_mode=True
         ) 
     
-    print('this is the current state: ', solution_manager.current_joint_state)
+    # print('this is the current state: ', solution_manager.current_joint_state)
     
     rospy.spin()

@@ -52,6 +52,8 @@ class IK_Solution_Manager:
     moveit_controller_joint_states_topic2 = '/move_group/fake_controller_joint_states2'
 
     current_pose_topic='/cartesian_pose_UR5' ######## without anti rotation
+    current_realUR5_topic='/real_ur5_cartesianPosition' ######## without anti rotation
+
     ##  out_virtuose_physical_pose corresponds in ur5 anti  (-xV=-xUR5; +yV=+zUR5; +zV=+yUR5)
 
     ##current_pose_topic_anti='/cartesian_pose_UR5_anti' ####THIS IS THE ONE WITH ANTI ROTATION TO BE COMPATIBLE WITH THE VIRTUOSE AXIS
@@ -59,7 +61,7 @@ class IK_Solution_Manager:
 
 
     def __init__(self, init_state=None, sim=True, **kwargs):
-        # ####    #SAFETY BLOCKS
+# ####    #SAFETY BLOCKS
         self.safety_counter = 0
         self._kdl = UR5KDL()
         self.rotation_bias = Frame(Rotation.Quaternion(-0.7071067811865475, 0.7071067811865476, 0 ,0)) ########
@@ -72,7 +74,6 @@ class IK_Solution_Manager:
 
         self.joint_manager = JointMovementManager.generate_manager(init_state, sim=sim)
 
-
         self.solution_listener = rospy.Subscriber(self.relaxed_ik_solutions_topic, JointAngles, self.__OnSolutionReceived, queue_size=1)
         self.joint_state_listener = rospy.Subscriber(self.joint_listener_topic, JointState, self.__OnJointStateReceived, queue_size=1)
         self.ik_pose_goals_listener = rospy.Subscriber(self.relaxed_ik_pose_goals_topic, EEPoseGoals, self.__OnPoseGoalsRepuber,queue_size=1)
@@ -81,6 +82,8 @@ class IK_Solution_Manager:
         self.joint_publisher = rospy.Publisher(self.moveit_controller_joint_states_topic, JointState,queue_size=5)
         self.joint_publisher2 = rospy.Publisher(self.moveit_controller_joint_states_topic2, JointState,queue_size=5)
         self.current_pose_pub = rospy.Publisher(self.current_pose_topic, PoseStamped, queue_size=5) #CARTESIAN 
+        self.real_ur5_cartesianPosition = rospy.Publisher(self.current_realUR5_topic, PoseStamped, queue_size=5) #CARTESIAN 
+
         #self.current_pose_pub_anti = rospy.Publisher(self.current_pose_topic_anti, PoseStamped, queue_size=5) #CARTESIAN 
         ##self.current_pose_tf_pub_anti = rospy.Publisher(self.current_pose_topic_anti, PoseStamped, queue_size=5) #CARTESIAN 
 
@@ -111,6 +114,7 @@ class IK_Solution_Manager:
         # self.init_pose = pm.fromMsg(pose)
         
         rospy.Timer(rospy.Duration(1/15.), lambda msg: self.check_ee_safety())
+        
 #####
 ####
     def check_ee_safety(self):
@@ -178,27 +182,49 @@ class IK_Solution_Manager:
         current_joint_state_msg.header.stamp = rospy.Time.now()
         #TODO: target_msg.header.frame_id = '' 
         current_joint_state_msg.position = new_state2.tolist()
-        self.joint_publisher2.publish(current_joint_state_msg)
+        # self.joint_publisher2.publish(current_joint_state_msg)
 
 
         #rospy.loginfo("__OnSolutionReceived: " + str(new_state))
         #rospy.loginfo("__OnJointStateReceived: ") #+ str(new_state))
         
-        
-    def __OnSolutionReceived(self, ik_solution_msg, force=False):
+    def __OnSolutionReceived(self, joint_angle_msg, force=False):
+        """Function activated once the relaxedIK module has a ready solution
+
+        Args:
+            joint_angle_msg (relaxed_ik.msg.JointAngles): The JointAngles solution message
         """
-        ik_solution_msg: (relaxed_ik.msg.JointAngles): The JointAngles solution message defined by RelaxedIK
-        """
-        # np.asarray(ik_solution_msg.angles.data)
+        #print('(Virtuosejoint_angle_msg.angles.data)',np.asarray(joint_angle_msg.angles.data))
+        #[-3.51998331 -2.35621324 -1.85322204 -0.90234304  1.71986696  1.00960177]
+        #print('(REAL ROBOT joint_manager.current_j_state.position)',np.asarray(self.joint_manager.current_j_state.position))
+        #[ 2.75358438 -2.58036501 -1.94370062 -0.02060968  1.69204485 -0.06718046]
         diff = (
-            np.asarray(ik_solution_msg.angles.data) - \
+            np.asarray(joint_angle_msg.angles.data) - \
                 np.asarray(self.joint_manager.current_j_state.position)).round(2)
         diff = np.abs(np.arctan2(np.sin(diff), np.cos(diff)))
         if (self.min_angle < np.max(diff) < self.max_angle) or force:
-            self.joint_manager.generate_movement(ik_solution_msg.angles.data)
+            self.joint_manager.generate_movement(joint_angle_msg.angles.data)
             
         elif np.any(np.absolute(diff) >= self.max_angle):
             rospy.logwarn('Arm seems to move too fast! max diff: {}'.format(np.absolute(diff).max()))
+            # rospy.logwarn('max angles {}'.format(self.max_angle))
+            # rospy.logwarn('angles {}'.format(np.asarray(joint_angle_msg.angles.data)))
+            # rospy.logwarn('current_j_state {}'.format(np.asarray(self.joint_manager.current_j_state.position)))
+        
+        # cartesian_pose = self.compute_fk(joint_angle_msg.angles.data)
+        # self.real_ur5_cartesianPosition.publish(cartesian_pose)
+
+        ## These lines are needed only to update the marker of the EE on Rviz
+        # success, ee_pose = self._kdl.solve(joint_angle_msg.angles.data)
+        # marker = self._kdl.generate_pose_marker(ee_pose)
+        # self.marker_target_pub.publish(marker)
+
+
+    # def __OnSolutionReceived(self, ik_solution_msg):
+    #     """
+    #     ik_solution_msg: (relaxed_ik.msg.JointAngles): The JointAngles solution message defined by RelaxedIK
+    #     """
+    #     # np.asarray(ik_solution_msg.angles.data)
 
     #     # get target position data
     #     target_joint_state = np.asarray(ik_solution_msg.angles.data)
@@ -212,24 +238,24 @@ class IK_Solution_Manager:
     #         rospy.logwarn('Received unsafe solution! waiting for next one...')
     #    # 
 
-        #joint_target_publisher = rospy.Publisher('/move_group/fake_controller_joint_states', JointState, queue_size=1) 
-        #p0_transform =self.tf_buffer.lookup_transform_full('world',rospy.Time.now(),'hand_root',rospy.Time.now(),'world',rospy.Duration(1))
-        p0_transform = self.tf_buffer.lookup_transform('world', 'hand_root', rospy.Time.now(),rospy.Duration(0.1))
-        world_p0_list = [p0_transform.transform.translation.x, p0_transform.transform.translation.y, p0_transform.transform.translation.z] +\
-            [p0_transform.transform.rotation.x, p0_transform.transform.rotation.y, p0_transform.transform.rotation.z, p0_transform.transform.rotation.w]
-        world_p0_list = np.asarray(world_p0_list)
-        print(world_p0_list)
+    #     #joint_target_publisher = rospy.Publisher('/move_group/fake_controller_joint_states', JointState, queue_size=1) 
+    #     #p0_transform =self.tf_buffer.lookup_transform_full('world',rospy.Time.now(),'hand_root',rospy.Time.now(),'world',rospy.Duration(1))
+    #     p0_transform = self.tf_buffer.lookup_transform('world', 'hand_root', rospy.Time.now(),rospy.Duration(0.1))
+    #     world_p0_list = [p0_transform.transform.translation.x, p0_transform.transform.translation.y, p0_transform.transform.translation.z] +\
+    #         [p0_transform.transform.rotation.x, p0_transform.transform.rotation.y, p0_transform.transform.rotation.z, p0_transform.transform.rotation.w]
+    #     world_p0_list = np.asarray(world_p0_list)
+    #     print(world_p0_list)
 
-        current_pose_goals_msg_anti = PoseStamped()
-        current_pose_goals_msg_anti.header.stamp = rospy.Time.now()
-        current_pose_goals_msg_anti.pose.position.x = p0_transform.transform.translation.x
-        current_pose_goals_msg_anti.pose.position.y = p0_transform.transform.translation.y
-        current_pose_goals_msg_anti.pose.position.z = p0_transform.transform.translation.z
-        current_pose_goals_msg_anti.pose.orientation.x = p0_transform.transform.rotation.x
-        current_pose_goals_msg_anti.pose.orientation.y = p0_transform.transform.rotation.y
-        current_pose_goals_msg_anti.pose.orientation.z = p0_transform.transform.rotation.w
-        current_pose_goals_msg_anti.pose.orientation.w = p0_transform.transform.rotation.z
-        #self.current_pose_tf_pub_anti.publish(current_pose_goals_msg_anti)
+    #     current_pose_goals_msg_anti = PoseStamped()
+    #     current_pose_goals_msg_anti.header.stamp = rospy.Time.now()
+    #     current_pose_goals_msg_anti.pose.position.x = p0_transform.transform.translation.x
+    #     current_pose_goals_msg_anti.pose.position.y = p0_transform.transform.translation.y
+    #     current_pose_goals_msg_anti.pose.position.z = p0_transform.transform.translation.z
+    #     current_pose_goals_msg_anti.pose.orientation.x = p0_transform.transform.rotation.x
+    #     current_pose_goals_msg_anti.pose.orientation.y = p0_transform.transform.rotation.y
+    #     current_pose_goals_msg_anti.pose.orientation.z = p0_transform.transform.rotation.w
+    #     current_pose_goals_msg_anti.pose.orientation.w = p0_transform.transform.rotation.z
+    #     #self.current_pose_tf_pub_anti.publish(current_pose_goals_msg_anti)
 
 
     def __OnPoseGoalsRepuber(self,goals_msg):

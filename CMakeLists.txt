@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  message_generation
 )
 
 find_package(CUDA REQUIRED)
@@ -57,11 +58,13 @@ catkin_python_setup()
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+   FILES
+   SetPrior.srv
+   AddPoint.srv
+   CloneMesh.srv
+   ResetGP.srv
+    )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -71,10 +74,10 @@ catkin_python_setup()
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -107,9 +110,10 @@ catkin_python_setup()
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES virtuose_teleoperation
+LIBRARIES virtuose_teleoperation
 #  CATKIN_DEPENDS roscpp rospy std_msgs
 #  DEPENDS system_lib
+CATKIN_DEPENDS message_runtime
 )
 
 ###########

@@ -4,9 +4,10 @@ import actionlib
 
 # from virtuose.msg import out_virtuose_physical_pose
 from virtuose_teleoperation.msg import out_virtuose_physical_pose,xServerMsg
+from virtuose_teleoperation.msg import PoseControlAction,PoseControlGoal
 
 # from crisp_fingertips.msg import xServerMsg
-from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControlResult, PoseControlFeedback
+# from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControlResult, PoseControlFeedback
 
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PointStamped

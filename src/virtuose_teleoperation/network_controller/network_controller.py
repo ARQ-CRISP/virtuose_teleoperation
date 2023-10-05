@@ -2,9 +2,10 @@
 import rospy
 import actionlib
 
-from virtuose.msg import out_virtuose_physical_pose
-from relaxed_ik.msg import EEPoseGoals
-from crisp_fingertips.msg import xServerMsg
+# from virtuose.msg import out_virtuose_physical_pose
+from virtuose_teleoperation.msg import out_virtuose_physical_pose,xServerMsg
+
+# from crisp_fingertips.msg import xServerMsg
 from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControlResult, PoseControlFeedback
 
 from sensor_msgs.msg import JointState

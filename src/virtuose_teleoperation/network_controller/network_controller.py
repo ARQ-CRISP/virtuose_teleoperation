@@ -55,7 +55,11 @@ class CrispFingertipNode(object):
         self.crisp_mi_pub = rospy.Publisher("/crisp_mi_topic", xServerMsg, queue_size=10)
         self.crisp_ri_pub = rospy.Publisher("/crisp_ri_topic", xServerMsg, queue_size=10)
 
-        self.noise_offsets = [[0.0, 0.0, 0.0] for _ in range(4)]  # Initialize noise offsets for 4 points with zeros
+        self.sensor_finger_noise_offsets = {1: {'thumb': [0.0, 0.0, 0.0], 'index': [0.0, 0.0, 0.0], 'middle': [0.0, 0.0, 0.0], 'ring': [0.0, 0.0, 0.0]},
+                                       2: {'thumb': [0.0, 0.0, 0.0], 'index': [0.0, 0.0, 0.0], 'middle': [0.0, 0.0, 0.0], 'ring': [0.0, 0.0, 0.0]},
+                                       3: {'thumb': [0.0, 0.0, 0.0], 'index': [0.0, 0.0, 0.0], 'middle': [0.0, 0.0, 0.0], 'ring': [0.0, 0.0, 0.0]},
+                                       4: {'thumb': [0.0, 0.0, 0.0], 'index': [0.0, 0.0, 0.0], 'middle': [0.0, 0.0, 0.0], 'ring': [0.0, 0.0, 0.0]}}
+
         self.first_received = [False] * 4  # Flags for checking first data from each sensor
         self.tactile_data = {
             'thumb': [[0.0, 0.0, 0.0] for _ in range(4)],
@@ -76,10 +80,11 @@ class CrispFingertipNode(object):
         points = force_sensed.points
 
         if 1 <= sensor_id <= 4:
+            finger_name = self.get_finger_name_by_sensor_id(sensor_id)
             if not self.first_received[sensor_id - 1]:
-                # Set noise offsets for the current sensor based on the first received data for all points
+                # Set noise offsets for the current sensor and finger based on the first received data for all points
                 for i in range(4):
-                    self.noise_offsets[i] = [points[i].point.x, points[i].point.y, points[i].point.z]
+                    self.sensor_finger_noise_offsets[sensor_id][finger_name][i] = points[i].point.x
                 self.first_received[sensor_id - 1] = True
 
             for i in range(4):

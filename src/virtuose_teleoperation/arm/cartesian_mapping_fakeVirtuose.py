@@ -75,7 +75,8 @@ def transform_to_vec(T):
 class Cartesian_Mapping:
 
     def __init__(self, init_pose=None):
-     
+        print("FAKE CARTESIAN CONTROLLER")
+
         self.virtuose_sub = rospy.Subscriber("/out_virtuose_physical_pose", out_virtuose_physical_pose, self.callback) #rosmsg show out_virtuose_physical_pose 
         self.ee_pose_ur5_sub = rospy.Subscriber("/cartesian_pose_UR5", PoseStamped, self.__OnUR5CartesianPoseReceived)
 

@@ -137,9 +137,9 @@
         <param name="simulated" type="bool" value="$(arg sim)" />
     </node> -->
 
-    <!-- <group if="$(arg viz)">
+    <group if="$(arg viz)">
         <node name="teleop_rviz" pkg="rviz" type="rviz" args="-d $(find virtuose_teleoperation)/rviz/virtuose_teleop.rviz" />
-    </group> -->
+    </group>
 
 
 

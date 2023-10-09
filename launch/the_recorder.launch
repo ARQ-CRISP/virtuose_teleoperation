@@ -1,5 +1,5 @@
 <launch>
-<arg name="bagname"   default="pick_and_place_test"/>
+<arg name="bagname"   default="release_2"/>
 <arg name="start_time"   default=""/>
     <!-- <node pkg="rosbag" type="record" name="the_recorder" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /in_virtuose_force /out_index_pose /out_middle_pose /out_thumb_pose /delta_pose_index /delta_pose_middle /delta_pose_thumb /out_virtuose_physical_pose /relaxed_ik/ee_pose_goals /relaxed_ik/joint_angle_solutions /ur5/tf -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" > -->
 

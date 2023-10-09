@@ -177,7 +177,13 @@ class PoseActionClient(object):
         self.client.send_goal(goal, feedback_cb=self.feedbackCallback)
         
         #rospy.sleep(0.1)#/////############### SOPRA LO 0.2(5hz) FUNZIONA ABBASTANZA BENE, best at 0.5(2hz)# ovviamente questo e' perche gli sto chiedendo di fare 0.4 radianti istantaneamente
+        
+    def feedbackCallback(self,feedback):
+    
+        self.feedbacks_received = True
 
+        rospy.logdebug("pose_action_client: got feedback:")
+        rospy.logdebug(feedback)
 
 if __name__ == '__main__':
     try:

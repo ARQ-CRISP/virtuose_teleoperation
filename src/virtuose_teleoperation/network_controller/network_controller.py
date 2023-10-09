@@ -81,8 +81,8 @@ class CrispFingertipNode(object):
         points = force_sensed.points
         finger_name='unknown'
         
-        print("offset\n",self.tactile_offset)
-        print("Tactile data\n\n",self.tactile_data)
+        # print("offset\n",self.tactile_offset)
+        # print("Tactile data\n\n",self.tactile_data)
 
         if 1 <= sensor_id <= 4:
         
@@ -177,12 +177,12 @@ class PoseActionClient(object):
             self.allegro_joints[i] = allegro_joints_msg.position[i]
             self.allegro_velocity[i] = allegro_joints_msg.velocity[i]
             self.allegro_joints_eff[i]=allegro_joints_msg.effort[i]
+        print("self allegro joints",self.allegro_joints)
     
     def joints_control(self, jgoal):
         
         self.client.wait_for_server()
         print("JOINT CONTROLLER")
-
         # close thumb to touch the palm
         # joint_pose = \
         #     [0.1, 0.1, 0.0, 0.2,\
@@ -195,6 +195,7 @@ class PoseActionClient(object):
              jgoal[8], jgoal[9], jgoal[10], jgoal[11],\
              jgoal[12],jgoal[13],jgoal[14], jgoal[15]] ## 0 broken joint, 1 rot vertical, 2 fing pitch, 3 tip pitch        
         # send the pose to the server
+        
         goal = PoseControlGoal(joint_pose=joint_pose)
         self.client.send_goal(goal, feedback_cb=self.feedbackCallback)
         
@@ -239,6 +240,7 @@ if __name__ == '__main__':
 
 
             IM_ur5.net_fakevirtuose_pub.publish(ee_pose_fakevirtuose) #this msg replaces the input of virtuose in cartesian_mapping_FakeVirtuose.py
+            # print("nn_joint_pose", nn_joints_pose)
             IM_ah.joints_control(nn_joints_pose)
 
             # Publish processed data for each finger

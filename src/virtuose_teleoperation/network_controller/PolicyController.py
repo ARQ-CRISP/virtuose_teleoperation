@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from network import BC_MLP
 import rospy
-
+import numpy as np
 class Policy():
     def __init__(self):
         self.BC_MLP = BC_MLP()
@@ -17,8 +17,8 @@ class Policy():
         input = np.concatenate((ee_data, thumb_data, index_data, middle_data, ring_data, allegro_joints, allegro_velocity, allegro_joints_eff))
         input = torch.from_numpy(input).float()
         out = self.BC_MLP(input)
-        ee_position = out[0:3]
-        AH_joint_angle = out[3:]
+        ee_position = out[0:3].detach().numpy()
+        AH_joint_angle = out[3:].detach().numpy()
         return ee_position, AH_joint_angle
 
 

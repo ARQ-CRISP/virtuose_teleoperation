@@ -55,11 +55,12 @@ class CrispFingertipNode(object):
         self.crisp_mi_pub = rospy.Publisher("/crisp_mi_topic", xServerMsg, queue_size=10)
         self.crisp_ri_pub = rospy.Publisher("/crisp_ri_topic", xServerMsg, queue_size=10)
 
-        self.sensor_finger_noise_offsets = {1: {'thumb': [0.0, 0.0, 0.0], 'index': [0.0, 0.0, 0.0], 'middle': [0.0, 0.0, 0.0], 'ring': [0.0, 0.0, 0.0]},
-                                       2: {'thumb': [0.0, 0.0, 0.0], 'index': [0.0, 0.0, 0.0], 'middle': [0.0, 0.0, 0.0], 'ring': [0.0, 0.0, 0.0]},
-                                       3: {'thumb': [0.0, 0.0, 0.0], 'index': [0.0, 0.0, 0.0], 'middle': [0.0, 0.0, 0.0], 'ring': [0.0, 0.0, 0.0]},
-                                       4: {'thumb': [0.0, 0.0, 0.0], 'index': [0.0, 0.0, 0.0], 'middle': [0.0, 0.0, 0.0], 'ring': [0.0, 0.0, 0.0]}}
-
+        self.tactile_offset = {
+            'thumb': [[0.0, 0.0, 0.0] for _ in range(4)],
+            'index': [[0.0, 0.0, 0.0] for _ in range(4)],
+            'middle': [[0.0, 0.0, 0.0] for _ in range(4)],
+            'ring': [[0.0, 0.0, 0.0] for _ in range(4)]
+        }
         self.first_received = [False] * 4  # Flags for checking first data from each sensor
         self.tactile_data = {
             'thumb': [[0.0, 0.0, 0.0] for _ in range(4)],
@@ -78,30 +79,46 @@ class CrispFingertipNode(object):
         """
         sensor_id = force_sensed.sensorid
         points = force_sensed.points
+        finger_name='unknown'
+        
+        print("offset\n",self.tactile_offset)
+        print("Tactile data\n\n",self.tactile_data)
 
         if 1 <= sensor_id <= 4:
-            finger_name = self.get_finger_name_by_sensor_id(sensor_id)
+        
+            for i in range(4):
+                # Update tactile_data based on sensor ID and point index
+                if sensor_id == 1:
+                    finger_name='thumb'
+                elif sensor_id == 2:
+                    finger_name='index'                        
+                elif sensor_id == 3:
+                    finger_name='middle'                        
+                elif sensor_id == 4:
+                    finger_name='ring'  
+            
             if not self.first_received[sensor_id - 1]:
                 # Set noise offsets for the current sensor and finger based on the first received data for all points
-                for i in range(4):
-                    self.sensor_finger_noise_offsets[sensor_id][finger_name][i] = points[i].point.x
-                self.first_received[sensor_id - 1] = True
+                    self.tactile_offset[finger_name] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
+                    self.first_received[sensor_id - 1] = True
 
             for i in range(4):
                 # Remove noise offsets from x, y, and z coordinates for each point
-                points[i].point.x -= self.noise_offsets[i][0]
-                points[i].point.y -= self.noise_offsets[i][1]
-                points[i].point.z -= self.noise_offsets[i][2]
+                points[i].point.x -= self.tactile_offset[finger_name][i][0] 
+                points[i].point.y -= self.tactile_offset[finger_name][i][1] 
+                points[i].point.z -= self.tactile_offset[finger_name][i][2]
 
-            # Update tactile_data based on sensor ID and point index
-            if sensor_id == 1:
-                self.tactile_data['thumb'] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
-            elif sensor_id == 2:
-                self.tactile_data['index'] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
-            elif sensor_id == 3:
-                self.tactile_data['middle'] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
-            elif sensor_id == 4:
-                self.tactile_data['ring'] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
+            self.tactile_data[finger_name] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
+
+            # # Update tactile_data based on sensor ID and point index
+            # if sensor_id == 1:
+            #     self.tactile_data['thumb'] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
+            # elif sensor_id == 2:
+            #     self.tactile_data['index'] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
+            # elif sensor_id == 3:
+            #     self.tactile_data['middle'] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
+            # elif sensor_id == 4:
+            #     self.tactile_data['ring'] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
 
             # # Publish messages for each finger with the last information of tactile_data
             # self.publish_finger_message('thumb', self.crisp_th_pub)

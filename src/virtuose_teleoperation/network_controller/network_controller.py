@@ -142,9 +142,9 @@ class PoseActionClient(object):
     
     def __init__(self,init_pose=None):
         self.ah_sub = rospy.Subscriber("allegroHand_0/joint_states", JointState, self.__OnAHposeReceived)
-        self.allegro_joints = []
-        self.allegro_velocity = []
-        self.allegro_joints_eff=[]
+        self.allegro_joints = [0]*16
+        self.allegro_velocity = [0]*16
+        self.allegro_joints_eff=[0]*16
 
         self.client =\
             actionlib.SimpleActionClient('pose_control_action', PoseControlAction)       

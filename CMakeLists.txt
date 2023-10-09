@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib_msgs
 )
 
-find_package(CUDA REQUIRED)
+#find_package(CUDA REQUIRED)
 include_directories(${catkin_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
 
 ## System dependencies are found with CMake's conventions

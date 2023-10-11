@@ -12,7 +12,7 @@ from virtuose_teleoperation.msg import PoseControlAction,PoseControlGoal
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PointStamped
 from tf2_msgs.msg import TFMessage
-from PolicyController import Policy
+from PolicyController import Policy, Policy_EE
 
 
 # # subriscers....3 topics
@@ -199,7 +199,7 @@ class PoseActionClient(object):
         goal = PoseControlGoal(joint_pose=joint_pose)
         self.client.send_goal(goal, feedback_cb=self.feedbackCallback)
         
-        #rospy.sleep(0.1)#/////############### SOPRA LO 0.2(5hz) FUNZIONA ABBASTANZA BENE, best at 0.5(2hz)# ovviamente questo e' perche gli sto chiedendo di fare 0.4 radianti istantaneamente
+        rospy.sleep(0.1)#/////############### SOPRA LO 0.2(5hz) FUNZIONA ABBASTANZA BENE, best at 0.5(2hz)# ovviamente questo e' perche gli sto chiedendo di fare 0.4 radianti istantaneamente
         
     def feedbackCallback(self,feedback):
     
@@ -216,7 +216,8 @@ if __name__ == '__main__':
         IM_ah = PoseActionClient()
         IM_sensors = CrispFingertipNode()
 
-        Policy_NN = Policy()  # Initialize Policy class
+        # Policy_NN = Policy()  # Initialize Policy class
+        Policy_NN = Policy_EE()  # Initialize Policy class
 
         ee_pose_fakevirtuose=out_virtuose_physical_pose()
 
@@ -241,7 +242,7 @@ if __name__ == '__main__':
 
             IM_ur5.net_fakevirtuose_pub.publish(ee_pose_fakevirtuose) #this msg replaces the input of virtuose in cartesian_mapping_FakeVirtuose.py
             # print("nn_joint_pose", nn_joints_pose)
-            IM_ah.joints_control(nn_joints_pose)
+            # IM_ah.joints_control(nn_joints_pose)
 
             # Publish processed data for each finger
             IM_sensors.publish_finger_message('thumb')

@@ -206,3 +206,29 @@ class BC_COV_MLP(nn.Module):
         x = self.lin5(x)
 
         return x
+
+
+class BC_MLP_EE(nn.Module):
+
+    "BC with mlp structure"
+    def __init__(self, input_channels=7, output_channels=3) -> None:
+        super().__init__()
+        self.relu = nn.ReLU()
+        self.lin1 = nn.Linear(input_channels, 256)
+        self.lin2 = nn.Linear(256, 256)
+        self.lin3 = nn.Linear(256, 128)
+        self.lin4 = nn.Linear(128, 64)
+        self.lin5 = nn.Linear(64, output_channels)
+       
+       
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.relu(x)
+        x = self.lin2(x)
+        x = self.relu(x)
+        x = self.lin3(x)
+        x = self.relu(x)
+        x = self.lin4(x)
+        x = self.lin5(x)
+
+        return x        

@@ -232,8 +232,8 @@ if __name__ == '__main__':
 
             # #CONTROL MESSAGES FOR cartesian_mapping_FakeVirtuose.py
             ee_pose_fakevirtuose.virtuose_physical_pose.translation.x=nn_ee_pose[0]
-            ee_pose_fakevirtuose.virtuose_physical_pose.translation.y=nn_ee_pose[1]
-            ee_pose_fakevirtuose.virtuose_physical_pose.translation.z=nn_ee_pose[2]
+            ee_pose_fakevirtuose.virtuose_physical_pose.translation.y=0 #nn_ee_pose[1]
+            ee_pose_fakevirtuose.virtuose_physical_pose.translation.z=0 #nn_ee_pose[2]
             ee_pose_fakevirtuose.virtuose_physical_pose.rotation.x=0 #nn_ee_pose[3]
             ee_pose_fakevirtuose.virtuose_physical_pose.rotation.y=0 #nn_ee_pose[4]
             ee_pose_fakevirtuose.virtuose_physical_pose.rotation.z=0 #nn_ee_pose[5]

@@ -122,6 +122,9 @@ class Cartesian_Mapping:
         #antiROTATION [-0.7017234, -0.1871262, 0, 0.6874359]
         #Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
         #Frame(rot, pos): Construct a frame from a rotation and a vector
+        
+        # rot = [ 0, 0, 0, 1 ] 
+        # rot2 =[ 0, 0, 0, 1 ] 
         orient_bias = Frame(Rotation.Quaternion(*rot), Vector())
         orient_bias2 = Frame(Rotation.Quaternion(*rot2), Vector())######
 

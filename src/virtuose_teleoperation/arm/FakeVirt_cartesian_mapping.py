@@ -24,7 +24,7 @@ import csv
 ##########test
 def fromTransform(msg):
     pose = Frame()
-    pose.p = Vector(-msg.translation.x, -msg.translation.y, msg.translation.z) #- used to match the different frame from fake virtuose and RELIK
+    pose.p = Vector(msg.translation.x, msg.translation.y, msg.translation.z) #- used to match the different frame from fake virtuose and RELIK
     
     # pose.M = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
     
@@ -132,10 +132,13 @@ class FakeCartesian_Mapping:
                         
         else:
             self.init_pose = current_pose
+            
             self.init_rotation= current_rotation
             # self.init_rotation.M=self.init_rotation.M*Rotation.Quaternion(0.7071068, 0, 0, 0.7071068) #current_pose.M
      
         # print("initial _rotation",self.init_rotation)    
         self.latest_pose = current_pose
-    
+        # print("init_pose",self.init_pose.p)
+        # print("current_pose",self.latest_pose.p)
+        # print("target_pose",target.p)
             

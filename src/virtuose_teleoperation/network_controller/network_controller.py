@@ -10,7 +10,7 @@ from virtuose_teleoperation.msg import PoseControlAction,PoseControlGoal
 # from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControlResult, PoseControlFeedback
 
 from sensor_msgs.msg import JointState
-from geometry_msgs.msg import PointStamped, Point
+from geometry_msgs.msg import PointStamped, Point, WrenchStamped
 from tf2_msgs.msg import TFMessage
 from PolicyController import Policy, Policy_EE, PolicyAHEE, PolicyAHEE_yes_vel_no_eff ,PolicyAHEE_no_vel_no_eff, PolicyBC_MLP_AHEE_yVel_nEff_yTact
 import numpy as np
@@ -88,8 +88,10 @@ class Network_FakeVirtuose():
 class CrispFingertipNode(object):
     def __init__(self):
         self.arduino_sub = rospy.Subscriber("/xServTopic", xServerMsg, self.__OnMuxReceived)
-        self.FF_th_sub=rospy.Subrscriber("", )
-
+        self.FF_th_sub=rospy.Subscriber("/Crisp_TH_2HGlove",  WrenchStamped, self.__OnCrisp_FF_Received)#ForceFeedback
+        self.FF_in_sub=rospy.Subscriber("/Crisp_IN_2HGlove",  WrenchStamped, self.__OnCrisp_FF_Received)
+        self.FF_mi_sub=rospy.Subscriber("/Crisp_MID_2HGlove", WrenchStamped, self.__OnCrisp_FF_Received)
+        self.FF_ri_sub=rospy.Subscriber("/Crisp_RING_2HGlove",WrenchStamped, self.__OnCrisp_FF_Received)
 
         self.crisp_th_pub = rospy.Publisher("/crisp_th_topic", xServerMsg, queue_size=10)
         self.crisp_in_pub = rospy.Publisher("/crisp_in_topic", xServerMsg, queue_size=10)
@@ -109,7 +111,27 @@ class CrispFingertipNode(object):
             'middle': [[0.0, 0.0, 0.0] for _ in range(4)],
             'ring': [[0.0, 0.0, 0.0] for _ in range(4)]
         }
+        self.ff_data = {
+            'thumb': [0.0, 0.0, 0.0],
+            'index': [0.0, 0.0, 0.0],
+            'middle': [0.0, 0.0, 0.0],
+            'ring': [0.0, 0.0, 0.0] 
+        }
 
+        self.frame_id_mapping = {
+            '/Crips_TH_2HGLOVE': 'thumb',
+            '/Crips_IN_2HGLOVE': 'index',
+            '/Crips_MID_2HGLOVE': 'middle',
+            '/Crips_RING_2HGLOVE': 'ring'
+        }
+
+    def __OnCrisp_FF_Received(self,ff_msg):
+        ff_msg_ret = [ff_msg.wrench.force.x, ff_msg.wrench.force.y, ff_msg.wrench.force.z]
+
+        frame_id = ff_msg.header.frame_id
+        if frame_id in self.frame_id_mapping:
+            key = self.frame_id_mapping[frame_id]
+            self.ff_data[key] = ff_msg_ret     
 
     def __OnMuxReceived(self, force_sensed):
         """
@@ -339,6 +361,9 @@ if __name__ == '__main__':
                     # nn_ee_pose = Policy_NN.output(IM_ur5.ee_data,IM_sensors.tactile_data, IM_ah.allegro_joints, IM_ah.allegro_velocity, IM_ah.allegro_joints_eff)
                     # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints, IM_ah.allegro_velocity, IM_ah.allegro_joints_eff)
                     nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints, IM_ah.allegro_velocity)
+                    
+                    nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints, IM_ah.allegro_velocity, IM_sensors.ff_data)
+
                 # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints)
 
                     # IM_ur5.ee_data[i]   i=0-x,1-y,2-z,3-rx,4-ry,5-rz,6-rw 

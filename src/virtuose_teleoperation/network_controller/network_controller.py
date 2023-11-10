@@ -226,6 +226,7 @@ class PoseActionClient(object):
         self.allegro_velocity = [0]*16
         self.allegro_joints_eff=[0]*16
 
+        
         self.NN_AH_solution = rospy.Publisher("/NN_AH_solution", JointState, queue_size=10)
         self.joint_pose_msg=JointState()
 
@@ -266,6 +267,40 @@ class PoseActionClient(object):
             rospy.sleep(2)
             print("SETUP_TRUE")
             return False
+
+
+    def cartesian_control(self, de_in, de_mi,de_ri,de_th):
+        self.client.wait_for_server()
+        print("CARTESIAN CONTROLLER")
+        finger_poses = []
+
+        in_set = [0.0935, 0.0873, 0.1425, 0.9597, 0.2028, 0.1940, 0.0015]
+        mi_set = [0.1064, 0.0092, 0.1627, 0.9020, 0.0393, 0.4294, -0.0178]  # Initial pose values for middle finger
+        ri_set = [0.0689, -0.0519, 0.1396, 0.9860, -0.0378, 0.1579, -0.0373]  # Initial pose values for ring finger
+        th_set = [0.0687, 0.1170, 0.0563, 0.1961, 0.0134, 0.4522, 0.8699]  # Initial pose values for thumb
+
+
+        finger_poses.append(self.list_to_pose([in_set[0] + de_in[0], in_set[1] + de_in[1], in_set[2] + de_in[2], \
+                                            in_set[3] + de_in[3], in_set[4] + de_in[4], in_set[5] + de_in[5],
+                                            in_set[6] + de_in[6]]))  # finger 0 index
+
+        finger_poses.append(self.list_to_pose([mi_set[0] + de_mi[0], mi_set[1] + de_mi[1], mi_set[2] + de_mi[2], \
+                                            mi_set[3] + de_mi[3], mi_set[4] + de_mi[4], mi_set[5] + de_mi[5],
+                                            mi_set[6] + de_mi[6]]))  # finger 1 middle
+
+        finger_poses.append(self.list_to_pose([ri_set[0] + de_ri[0], ri_set[1] + de_ri[1], ri_set[2] + de_ri[2], \
+                                            ri_set[3] + de_ri[3], ri_set[4] + de_ri[4], ri_set[5] + de_ri[5],
+                                            ri_set[6] + de_ri[6]]))  # finger 2 ring finger
+
+        finger_poses.append(self.list_to_pose([th_set[0] + de_th[0], th_set[1] + de_th[1], th_set[2] + de_th[2], \
+                                            th_set[3] + de_th[3], th_set[4] + de_th[4], th_set[5] + de_th[5],
+                                            th_set[6] + de_th[6]]))  # finger 3 thumb
+
+        goal = PoseControlGoal(cartesian_pose=finger_poses)
+        self.client.send_goal(goal, feedback_cb=self.feedbackCallback)
+        # to test the feedback mechanism:
+        self.feedbacks_received = False
+
 
     def feedbackCallback(self,feedback):
     

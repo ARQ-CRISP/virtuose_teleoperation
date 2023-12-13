@@ -10,14 +10,17 @@ from virtuose_teleoperation.msg import PoseControlAction,PoseControlGoal
 # from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControlResult, PoseControlFeedback
 
 from sensor_msgs.msg import JointState
-from geometry_msgs.msg import PointStamped, Point, WrenchStamped
+from geometry_msgs.msg import PointStamped, Point, WrenchStamped, PoseArray
 from tf2_msgs.msg import TFMessage
-from PolicyController import Policy, Policy_EE, PolicyAHEE, PolicyAHEE_yes_vel_no_eff ,PolicyAHEE_no_vel_no_eff, PolicyBC_MLP_AHEE_yVel_nEff_yTact, PolicyAHEE_no_eff_yes_ff, PolicyAHEE_yes_norm, PolicyAHEE_yes_norm_delta_q , PolicyAH_yes_norm_delta_q, PolicyAH_yes_norm_output_delta_q
+from PolicyController import Policy, Policy_EE, PolicyAHEE, PolicyAHEE_yes_vel_no_eff ,PolicyAHEE_no_vel_no_eff, PolicyBC_MLP_AHEE_yVel_nEff_yTact, PolicyAHEE_no_eff_yes_ff, PolicyAHEE_yes_norm, PolicyAHEE_yes_norm_delta_q , PolicyAH_yes_norm_delta_q, PolicyAH_yes_norm_output_delta_q, PolicyAHFF_output_delta_q, PolicyAH_only_output_delta_q, PolicyAH_time_series_only_output_delta_q, PolicyAHFF_output_delta_q_TAC, PolicyAH_time_series_only_output_delta_q_TAC, PolicyAHFF_output_hglove, Classification_with_time_series_feature
 import numpy as np
 import csv
 import signal
 import sys
 from datetime import datetime
+from scipy.signal import butter, lfilter
+
+
 
 nn_joints_pose_data = []
 nn_joints_pose_interpolation_data = []
@@ -120,18 +123,20 @@ class CrispFingertipNode(object):
         }
 
         self.frame_id_mapping = {
-            '/Crips_TH_2HGLOVE': 'thumb',
-            '/Crips_IN_2HGLOVE': 'index',
-            '/Crips_MID_2HGLOVE': 'middle',
-            '/Crips_RING_2HGLOVE': 'ring'
+            '/Crisp_TH_2HGlove': 'thumb',
+            '/Crisp_IN_2HGlove': 'index',
+            '/Crisp_MID_2HGlove': 'middle',
+            '/Crisp_RING_2HGlove': 'ring'
         }
 
     def __OnCrisp_FF_Received(self,ff_msg):
         ff_msg_ret = [ff_msg.wrench.force.x, ff_msg.wrench.force.y, ff_msg.wrench.force.z]
-
+        # print("ff_msg_ret",ff_msg_ret)
         frame_id = ff_msg.header.frame_id
+        # print('frame_id', frame_id)
         if frame_id in self.frame_id_mapping:
             key = self.frame_id_mapping[frame_id]
+            # print("KEY",key)
             self.ff_data[key] = ff_msg_ret     
 
     def __OnMuxReceived(self, force_sensed):
@@ -143,37 +148,40 @@ class CrispFingertipNode(object):
         """
         sensor_id = force_sensed.sensorid
         points = force_sensed.points
+
         finger_name='unknown'
         
-        # print("offset\n",self.tactile_offset)
-        # print("Tactile data\n\n",self.tactile_data)
+
 
         if 1 <= sensor_id <= 4:
         
-            for i in range(4):
+            # for i in range(4):
                 # Update tactile_data based on sensor ID and point index
-                if sensor_id == 1:
-                    finger_name='thumb'
-                elif sensor_id == 4:
-                    finger_name='index'                        
-                elif sensor_id == 3:
-                    finger_name='middle'                        
-                elif sensor_id == 2:
-                    finger_name='ring'  
-            
+            if sensor_id == 1:
+                finger_name='thumb'
+            elif sensor_id == 4:
+                finger_name='index'
+            elif sensor_id == 3:
+                finger_name='middle'
+            elif sensor_id == 2:
+                finger_name='ring'  
+
             if not self.first_received[sensor_id - 1]:
                 # Set noise offsets for the current sensor and finger based on the first received data for all points
                     self.tactile_offset[finger_name] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
                     self.first_received[sensor_id - 1] = True
-
             for i in range(4):
                 # Remove noise offsets from x, y, and z coordinates for each point
                 points[i].point.x -= self.tactile_offset[finger_name][i][0] 
                 points[i].point.y -= self.tactile_offset[finger_name][i][1] 
                 points[i].point.z -= self.tactile_offset[finger_name][i][2]
-
+                
+                # if sensor_id == 2:
+                    # print("points[i] ring", points[i])
+                
             self.tactile_data[finger_name] = [[points[i].point.x, points[i].point.y, points[i].point.z] for i in range(4)]
-
+            # if sensor_id == 2:
+            #     print("self.tactile_data[ring]",self.tactile_data[finger_name])
 
     def publish_finger_message(self, finger_name):
         # Create a message and fill it with the last information of tactile_data for the specified finger
@@ -222,9 +230,11 @@ class PoseActionClient(object):
     
     def __init__(self,init_pose=None):
         self.ah_sub = rospy.Subscriber("allegroHand_0/joint_states", JointState, self.__OnAHposeReceived)
+        self.ah_sub = rospy.Subscriber("crisp_merged_poses", PoseArray, self.__OnFingetipMergedPositionReceived)
         self.allegro_joints = [0]*16
         self.allegro_velocity = [0]*16
         self.allegro_joints_eff=[0]*16
+        self.crispFingertipMerged=None
 
         
         self.NN_AH_solution = rospy.Publisher("/NN_AH_solution", JointState, queue_size=10)
@@ -240,11 +250,18 @@ class PoseActionClient(object):
             self.allegro_velocity[i] = allegro_joints_msg.velocity[i]
             self.allegro_joints_eff[i]=allegro_joints_msg.effort[i]
         # print("self ALLLLLLEGRO allegro joints",self.allegro_joints)
-    
+
+    def __OnFingetipMergedPositionReceived(self, crisp_merged_poses_msg):
+        self.crispFingertipMerged = crisp_merged_poses_msg.poses[:] #use crispFingertipMerged[0].position.x
+
+        # IMPORTANT: To access values later, use crispFingertipMerged[0].position.x  0=index, 1=middle, 2=ring, 3=thumb
+        # For example, crispFingertipMerged[0].position.x gives you the x/y/z-coordinate of the position for the first pose.
+        # Similarly, crispFingertipMerged[0].orientation.x would give you the x/y/z/w-component of the orientation quaternion
+        # for the first pose.    
     def joints_control(self, jgoal, setup=False):
         
         self.client.wait_for_server()
-        print("JOINT CONTROLLER")
+        # print("JOINT CONTROLLER")
         # close thumb to touch the palm
         # joint_pose = \
         #     [0.1, 0.1, 0.0, 0.2,\
@@ -332,39 +349,50 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class ActionPrediction(object):
-    def __init__(self,Policy_NN, ee_data, allegro_joints ):
+    def __init__(self,Policy_NN, Seg_net, ee_data, allegro_joints, interp_rate, fs ):
         
         self.nn_ee_pose_interpolation = np.zeros((10, 3))  #change it to 7 later
         self.nn_AH_joints_interpolation = np.zeros((10, 16))
+        self.nn_ee_pose_butterfilter = np.zeros((interp_rate, 3))
+        self.nn_AH_joints_butterfilter = np.zeros((interp_rate, 16))
+
         self.Policy_NN = Policy_NN
         self.IM_ur5_buffer = np.array(ee_data)
         self.IM_ah_buffer = np.array(allegro_joints)
-    def action_prediction_with_interpolation(self, i, interp_rate, ee_state, allegro_joints, tactile_data):
-        if (i%interp_rate == 0):
-            # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data,IM_sensors.tactile_data, IM_ah.allegro_joints, IM_ah.allegro_velocity)         
-            # print(nn_ee_pose_interpolation[i%10,0])
-            # print(nn_AH_joints_interpolation[i%10,15])
+        self.record_action = np.zeros((interp_rate, 16))
+        self.interp_rate = interp_rate
+        self.fs = fs
 
-            # nn_ee_pose = Policy_NN.output(IM_ur5.ee_data,IM_sensors.tactile_data, IM_ah.allegro_joints, IM_ah.allegro_velocity, IM_ah.allegro_joints_eff)
-            # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints, IM_ah.allegro_velocity, IM_ah.allegro_joints_eff)
-            # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints, IM_ah.allegro_velocity)
-            
-            nn_ee_pose, nn_joints_pose = self.Policy_NN.output(ee_state, allegro_joints, tactile_data)
+        self.ee_data_history = []
+        self.allegro_joints_history = []
+        self.ff_data_history = []
+        self.ff_full_data_history = []
+        self.finger_state_history = []
+        self.time_length = 0
+        self.max_length = 5
+        self.Seg_NET = Seg_net
 
-        # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints)
+    def butter_lowpass_filter(self, data, cutoff=11, order=5):
+        nyq = 0.5 * self.fs
+        normal_cutoff = cutoff / nyq
+        b, a = butter(order, normal_cutoff, btype='low', analog=False)
+        y = lfilter(b, a, data)
+        return y
+    def action_prediction_with_interpolation(self, i, ee_state, allegro_joints, tactile_data):
+        if (i%self.interp_rate == 0):
 
-            # IM_ur5.ee_data[i]   i=0-x,1-y,2-z,3-rx,4-ry,5-rz,6-rw 
-            # IM_sensors.tactile_data.finger[i].$  finger=thumb,index,middle,ring   i=0,1,2,3   $=xyz
+            allegro_state = allegro_joints.copy()
+            nn_joints_pose = self.Policy_NN.output(allegro_state, tactile_data.copy())
+            nn_ee_pose = ee_state
 
-        # Publish processed data if necessary
         
-            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose, num=interp_rate)
-            self.nn_AH_joints_interpolation = np.linspace(allegro_joints, nn_joints_pose, num=interp_rate)
+            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose, num=self.interp_rate+1)[1:]
+            self.nn_AH_joints_interpolation = np.linspace(allegro_state, nn_joints_pose, num=self.interp_rate+1)[1:]
             return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
         else:
-            return self.nn_ee_pose_interpolation[i%interp_rate], self.nn_AH_joints_interpolation[i%interp_rate]
+            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
                     
-    def action_prediction_with_interpolation_delta_q(self,i, interp_rate, ee_state, allegro_joints, tactile_data):
+    def action_prediction_with_interpolation_delta_q(self,i,  ee_state, allegro_joints, tactile_data):
         if (i%interp_rate == 0):
             # print("ACTION PRED IM_AH",IM_ah.allegro_joints)
             # print("ACTION PRED",allegro_joints)
@@ -413,7 +441,7 @@ class ActionPrediction(object):
 
         #     return self.nn_ee_pose_interpolation[i%interp_rate], self.nn_AH_joints_interpolation[i%interp_rate]
                     
-    def action_prediction_without_interpolation_delta_q_filtered(self,i, interp_rate, ee_state, allegro_joints, tactile_data):
+    def action_prediction_without_interpolation_delta_q_filtered(self,i, ee_state, allegro_joints, tactile_data):
         # self.IM_xx_buffer is used to keep the filtered value
         if (i%interp_rate == 0):
             a = 0.1
@@ -432,24 +460,192 @@ class ActionPrediction(object):
 
             return nn_ee_pose_predict,  self.IM_ah_buffer
 
-    def action_prediction_with_interpolation_delta_q_filtered(self,i, interp_rate, ee_state, allegro_joints, tactile_data):
+    def action_prediction_delta_q_butter_filtered(self,i, ee_state, allegro_joints, tactile_data):
 
-        if (i%interp_rate == 0):
-            a = 0.1
+        if (i%self.interp_rate == 0):
+            filtered_nn_joint_pose_delta = np.zeros((self.interp_rate, 16))
+            ah_previous = self.IM_ah_buffer.copy()
+            for m in range(16):
+                filtered_nn_joint_pose_delta[:, m] = self.butter_lowpass_filter(self.record_action[:, m])
+            self.nn_ee_pose_butterfilter = np.tile(ee_state[0:3], (self.interp_rate, 1))
+            self.nn_AH_joints_butterfilter = np.tile(allegro_joints, (self.interp_rate, 1)) + filtered_nn_joint_pose_delta
+            # print(self.nn_AH_joints_butterfilter.shape)
+            nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
+            self.record_action[i%self.interp_rate, :] = nn_joints_pose_delta
+            return self.nn_ee_pose_butterfilter[0], self.nn_AH_joints_butterfilter[0]
+        else:
+            nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
+            self.record_action[i%self.interp_rate, :] = nn_joints_pose_delta
+            return self.nn_ee_pose_butterfilter[i%self.interp_rate], self.nn_AH_joints_butterfilter[i%self.interp_rate]
+
+    def action_prediction_with_interpolation_delta_q_filtered(self,i, ee_state, allegro_joints, tactile_data):
+        
+        if (i%self.interp_rate == 0):
+            a = 0.05
 
             ah_previous = self.IM_ah_buffer.copy()
-            nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
+            nn_joints_pose = self.Policy_NN.output( allegro_joints.copy(), tactile_data.copy())
+            # nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
+            # nn_joints_pose_delta = self.Policy_NN.output( allegro_joints)
+            nn_ee_pose_predict = np.array(ee_state[0:3])
+            # self.IM_ur5_buffer += a * (nn_ee_pose_predict - self.IM_ur5_buffer)
+            self.IM_ah_buffer += a * (nn_joints_pose - self.IM_ah_buffer)
+            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose_predict, num=self.interp_rate+1)[1:]
+            self.nn_AH_joints_interpolation = np.linspace(ah_previous, self.IM_ah_buffer, num=self.interp_rate+1)[1:]
+            return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
+        else:
+            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
+        
+    def action_prediction_with_time_series_input_delta_q(self,i,  ee_state, allegro_joints, tactile_data):
+        if (i%interp_rate == 0):
+            nn_joints_pose_delta, tactile_prediction = self.Policy_NN.output(self.IM_ah_buffer.copy(),  allegro_joints)
+            print('tactile_prediction', tactile_prediction)
+            nn_ee_pose = np.array(ee_state[0:3])
+            nn_joints_pose = np.array(allegro_joints) + nn_joints_pose_delta
+            self.IM_ur5_buffer = np.array(ee_state)
+            self.IM_ah_buffer = np.array(allegro_joints)
+            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose, num=self.interp_rate+1)[1:]
+            self.nn_AH_joints_interpolation = np.linspace(allegro_joints, nn_joints_pose, num=self.interp_rate+1)[1:]
+            for j in range(4):
+                if j == 3: 
+                    if tactile_prediction[j] > 0.2:
+                        self.nn_AH_joints_interpolation[:, 14] += 0.08
+                else:
+                    if tactile_prediction[j] > 0.2:
+                        self.nn_AH_joints_interpolation[:, 1+4*j] += 0.05
+                
+
+            return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
+        else:
+
+
+            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
+
+    def action_prediction_with_interpolation_delta_q_filtered_and_tactile_prediction(self,i, ee_state, allegro_joints, tactile_data):
+        
+        if (i%self.interp_rate == 0):
+            # a = 0.1
+
+            ah_previous = self.IM_ah_buffer.copy()
+            nn_joints_pose_delta, tactile_prediction = self.Policy_NN.output( allegro_joints, tactile_data)
+            # nn_joints_pose_delta = self.Policy_NN.output( allegro_joints)
+            print('tactile_prediction', tactile_prediction)
             nn_ee_pose_predict = np.array(ee_state[0:3])
             nn_joints_pose_predict = np.array(allegro_joints) + nn_joints_pose_delta
             # self.IM_ur5_buffer += a * (nn_ee_pose_predict - self.IM_ur5_buffer)
-            self.IM_ah_buffer += a * (nn_joints_pose_predict - self.IM_ah_buffer)
-            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose_predict, num=interp_rate+1)[1:]
-            self.nn_AH_joints_interpolation = np.linspace(ah_previous, self.IM_ah_buffer, num=interp_rate+1)[1:]
+            # self.IM_ah_buffer += a * (nn_joints_pose_predict - self.IM_ah_buffer)
+            self.IM_ah_buffer = np.array(nn_joints_pose_predict)
+            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose_predict, num=self.interp_rate+1)[1:]
+            self.nn_AH_joints_interpolation = np.linspace(ah_previous, self.IM_ah_buffer, num=self.interp_rate+1)[1:]
+            for j in range(4):
+                if j == 3: 
+                    if tactile_prediction[j] > 0.1:
+                        self.nn_AH_joints_interpolation[:, 14] += 0.08
+                else:
+                    if tactile_prediction[j] > 0.1:
+                        self.nn_AH_joints_interpolation[:, 1+4*j] += 0.05
+                        self.nn_AH_joints_interpolation[:, 2+4*j] += 0.05
             return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
         else:
-            return self.nn_ee_pose_interpolation[i%interp_rate], self.nn_AH_joints_interpolation[i%interp_rate]
+            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
+        
+    def action_prediction_with_interpolation_delta_q_filtered(self,i, ee_data, allegro_joints, tactile_data, finger_state):
+        
 
 
+
+        if (i%self.interp_rate == 0):
+            ff_data, ff_full_state = self.tactile_data_process(tactile_data)
+            self.ee_data_history.insert(0, ee_data)
+            self.allegro_joints_history.insert(0, allegro_joints)
+            self.finger_state_history.insert(finger_state)
+            self.ff_data_history.insert(ff_data)
+            self.ff_full_data_history(ff_full_state)
+            if (self.time_length < self.max_length):
+                self.time_length += 1
+                self.nn_ee_pose_interpolation = np.tile(ee_data[0:3], (self.interp_rate, 1))
+                self.nn_AH_joints_interpolation = np.tile(allegro_joints, (self.interp_rate, 1))
+                return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
+            
+            else:
+                a = 0.05
+                self.ee_data_history.pop()
+                self.allegro_joints_history.pop()
+                self.finger_state_history.pop()
+                self.ff_data_history.pop()
+                self.ff_full_data_history.pop()
+
+                Policy_name = self.Seg_NET(self.ee_data_history, self.allegro_joints_history, self.finger_state_history, self.ff_data_history, self.ff_full_data_history)
+                print(Policy_name)
+
+                ################test
+                self.nn_ee_pose_interpolation = np.tile(ee_data[0:3], (self.interp_rate, 1))
+                self.nn_AH_joints_interpolation = np.tile(allegro_joints, (self.interp_rate, 1))
+
+                # ah_previous = self.IM_ah_buffer.copy()
+                # nn_joints_pose = self.Policy_NN.output( allegro_joints.copy(), tactile_data.copy())
+                # # nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
+                # # nn_joints_pose_delta = self.Policy_NN.output( allegro_joints)
+                # nn_ee_pose_predict = np.array(ee_data[0:3])
+                # # self.IM_ur5_buffer += a * (nn_ee_pose_predict - self.IM_ur5_buffer)
+                # self.IM_ah_buffer += a * (nn_joints_pose - self.IM_ah_buffer)
+                # self.nn_ee_pose_interpolation = np.linspace(ee_data[0:3], nn_ee_pose_predict, num=self.interp_rate+1)[1:]
+                # self.nn_AH_joints_interpolation = np.linspace(ah_previous, self.IM_ah_buffer, num=self.interp_rate+1)[1:]
+
+                return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
+        else:
+            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
+        
+    def tactile_data_process(self, force_feedback):
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        thumb_norm = np.linalg.norm(thumb_data)
+        index_norm = np.linalg.norm(index_data)
+        middle_norm = np.linalg.norm(middle_data)
+        ring_norm = np.linalg.norm(ring_data)
+        # print("force_feedback",force_feedback)
+
+        ff_full_state_limit1 = 30
+        ff_full_state_limit2 = 30
+        index_data = np.where(index_data < ff_full_state_limit1, 0, index_data) #index
+        middle_data = np.where(middle_data < ff_full_state_limit2, 0, middle_data) #mid
+        ring_data = np.where(ring_data < ff_full_state_limit1, 0, ring_data) #ring
+        thumb_data = np.where(thumb_data < ff_full_state_limit1, 0, thumb_data) #thumb
+        #Normalize:
+        index_data = self.dataalize_using_sigmoid(index_data, -50, 400)
+        middle_data = self.dataalize_using_sigmoid(middle_data, -50, 400)
+        ring_data = self.dataalize_using_sigmoid(ring_data, -50, 400)
+        thumb_data = self.dataalize_using_sigmoid(thumb_data, -50, 400)
+
+        ff_full_state = np.concatenate((index_data, middle_data, ring_data, thumb_data))
+
+
+
+        # Limit the value
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        index_norm = np.where(index_norm < limit1, 0, index_norm)
+        middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+
+        ff_data = np.concatenate(([index_norm], [index_norm], [ring_norm], [thumb_norm]))
+
+        return  ff_data, ff_full_state
+
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
 
 if __name__ == '__main__':
     try:
@@ -466,18 +662,31 @@ if __name__ == '__main__':
         # Policy_NN = PolicyAHEE() #  Initialize Policy class
         # Policy_NN = PolicyAHEE_yes_vel_no_eff()
         # Policy_NN = PolicyAHEE_yes_norm()
-        Policy_NN = PolicyAH_yes_norm_output_delta_q()
+        # Policy_NN = PolicyAH_yes_norm_output_delta_q()
+        # Policy_NN = PolicyAHFF_output_delta_q_TAC()
+        Policy_NN = PolicyAHFF_output_hglove()
+        Seg_Net = Classification_with_time_series_feature()
+        Seg_Net.eval()
+        # Policy_NN = PolicyAH_time_series_only_output_delta_q_TAC()
+        # Policy_NN = PolicyAH_only_output_delta_q()
+        # Policy_NN = PolicyAH_time_series_only_output_delta_q()
+        # Policy_NN = PolicyAHFF_output_delta_q()
         # Policy_NN = PolicyAHEE_no_vel_no_eff()
-        setup_AH_temp=[0.17,0.47,0.25,-0.27,    0.18,0.50,0.28,-0.14,  0.12,0.72,0.44,-0.25, 1.49,-0.07,0.11,-0.16]
-        IM_AP = ActionPrediction(Policy_NN, IM_ur5.ee_data.copy(), setup_AH_temp)
+        # setup_AH_temp=[0.17,0.47,0.25,-0.27,    0.18,0.50,0.28,-0.14,  0.12,0.72,0.44,-0.25,  1.49,-0.07,0.31,-0.16]
+        # setup_AH_temp=[0.0,0.79,0.52,-0.21,    -0.00,0.75,0.61,-0.14,  0.14,1.01,0.61,-0.13,  1.49,-0.06,0.29,-0.19]
+        setup_AH_temp = [0.15, 0.82, 0.46, -0.13,    0.14, 0.84, 0.47, -0.10,       0.26, 0.91, 0.68,-0.14,    1.49, -0.05, 0.26, -0.188]   ####Top grasp
+        # setup_AH_temp = [-0.04, 0.52, 0.28, 0.29,      -0.03, 0.52, 0.31, 0.30,      0.00, 0.44, 0.26, 0.19,     1.49, -0.14, 0.11, -0.20]   ###Side grasping
+        # setup_AH_temp = [0.07, 0.166, 0.04, 0.12,     0.04, 0.18, 0.04, 0.11,       0.07, 0.53, 0.14, 0.015,      1.49, -0.14, 0.119, -0.145]  ###Rotation
         ee_pose_fakevirtuose=out_virtuose_physical_pose()
         setup=True #true to skip the setup phase
         setup_hand=True
         i = 0
 
         freq_net=10
-        interp_rate=5
+        interp_rate=10
         rate = rospy.Rate(interp_rate*freq_net) #Hz
+        # IM_AP = ActionPrediction(Policy_NN, IM_ur5.ee_data.copy(), setup_AH_temp, interp_rate, interp_rate*freq_net)
+        IM_AP = ActionPrediction(Policy_NN, Seg_Net, IM_ur5.ee_data.copy(), setup_AH_temp, interp_rate, interp_rate*freq_net)
         while not rospy.is_shutdown():
 
             if setup==False:
@@ -498,8 +707,9 @@ if __name__ == '__main__':
                    setup_hand=IM_ah.joints_control(setup_AH_temp,True) 
                 #    setup_hand=IM_ah.joints_control([0.0,0.0,0.0,-0.0,    0.0,0.0,0.0,-0.0,  0.0,0.0,0.0,-0.0, 1.49,-0.0,0.0,-0.0],True)
 
-                nn_ee_pose, nn_joints_pose_interpolation = IM_AP.action_prediction_with_interpolation_delta_q_filtered(i, interp_rate, IM_ur5.ee_data.copy(), IM_ah.allegro_joints.copy(), IM_sensors.tactile_data.copy())
-                
+                # nn_ee_pose, nn_joints_pose_interpolation = IM_AP.action_prediction_with_interpolation_delta_q_filtered(i,  IM_ur5.ee_data.copy(), IM_ah.allegro_joints.copy(), IM_sensors.ff_data.copy())
+                nn_ee_pose, nn_joints_pose_interpolation = IM_AP.Classification_with_time_series_feature(i,  IM_ur5.ee_data.copy(), IM_ah.allegro_joints.copy(), IM_sensors.ff_data.copy())
+                # print("NETWORK INPUT",IM_sensors.ff_data)
 
                 # #CONTROL MESSAGES FOR cartesian_mapping_FakeVirtuose.py
                 ee_pose_fakevirtuose.virtuose_physical_pose.translation.x=nn_ee_pose[0]#0#nn_ee_pose[0]#2
@@ -517,7 +727,7 @@ if __name__ == '__main__':
                 # print("nn_joint_pose", nn_joints_pose)
 
                 # IM_ah.joints_control(nn_joints_pose_interpolation)
-                print("PUBLISHER",nn_joints_pose_interpolation)
+                # print("PUBLISHER",nn_joints_pose_interpolation)
                 IM_ah.joints_control(nn_joints_pose_interpolation)
                 
 

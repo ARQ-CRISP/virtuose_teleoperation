@@ -407,3 +407,265 @@ class BC_MLP_AHEE_yes_norm_ouput_delta_q(nn.Module):
         x = self.lin5(x)
 
         return x        
+    
+class BC_MLP_AH_only_ouput_delta_q(nn.Module):
+
+    "BC with mlp structure"
+    def __init__(self, input_channels=16, output_channels=16) -> None:
+        super().__init__()
+        self.relu = nn.ReLU()
+        self.lin1 = nn.Linear(input_channels, 256)
+        self.lin2 = nn.Linear(256, 256)
+        self.lin3 = nn.Linear(256, 128)
+        self.lin4 = nn.Linear(128, 64)
+        self.lin5 = nn.Linear(64, output_channels)
+       
+       
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.relu(x)
+        x = self.lin2(x)
+        x = self.relu(x)
+        x = self.lin3(x)
+        x = self.relu(x)
+        x = self.lin4(x)
+        x = self.relu(x)
+        x = self.lin5(x)
+
+        return x        
+
+
+
+class BC_MLP_AH_time_series_only_ouput_delta_q(nn.Module):
+
+    "BC with mlp structure"
+    def __init__(self, input_channels=32, output_channels=16) -> None:
+        super().__init__()
+        self.relu = nn.ReLU()
+        self.lin1 = nn.Linear(input_channels, 256)
+        self.lin2 = nn.Linear(256, 256)
+        self.lin3 = nn.Linear(256, 128)
+        self.lin4 = nn.Linear(128, 64)
+        self.lin5 = nn.Linear(64, output_channels)
+       
+       
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.relu(x)
+        x = self.lin2(x)
+        x = self.relu(x)
+        x = self.lin3(x)
+        x = self.relu(x)
+        x = self.lin4(x)
+        x = self.relu(x)
+        x = self.lin5(x)
+
+        return x   
+    
+class BC_MLP_EE_HISTORY_TAC(nn.Module):
+
+    "BC with mlp structure"
+    def __init__(self, input_channels=32, output_channels=16, tactile_channels=4) -> None: 
+        super().__init__()
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+        self.lin1 = nn.Linear(input_channels, 256)
+        self.lin2 = nn.Linear(256, 256)
+        self.lin3 = nn.Linear(256, 128)
+        self.lin4 = nn.Linear(128, 64)
+        self.lin_joint = nn.Linear(64, output_channels)
+        self.lin_tac = nn.Linear(64, tactile_channels)
+        
+        
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.relu(x)
+        x = self.lin2(x)
+        x = self.relu(x)
+        x = self.lin3(x)
+        x = self.relu(x)
+        x = self.lin4(x)
+        x = self.relu(x)
+        x_joint = self.lin_joint(x)
+        x_lin_tac = self.sigmoid(self.lin_tac(x))
+
+        return x_joint, x_lin_tac
+
+class BC_MLP_EETAC(nn.Module):
+
+    "BC with mlp structure"
+    def __init__(self, input_channels=20, output_channels=16, tactile_channels=4) -> None: 
+        super().__init__()
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+        self.lin1 = nn.Linear(input_channels, 256)
+        self.lin2 = nn.Linear(256, 256)
+        self.lin3 = nn.Linear(256, 128)
+        self.lin4 = nn.Linear(128, 64)
+        self.lin_joint = nn.Linear(64, output_channels)
+        self.lin_tac = nn.Linear(64, tactile_channels)
+        
+        
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.relu(x)
+        x = self.lin2(x)
+        x = self.relu(x)
+        x = self.lin3(x)
+        x = self.relu(x)
+        x = self.lin4(x)
+        x = self.relu(x)
+        x_joint = self.lin_joint(x)
+        x_lin_tac = self.sigmoid(self.lin_tac(x))
+
+        return x_joint, x_lin_tac
+    
+class BC_MLP_AHEE_yes_norm_ouput_hglove(nn.Module):
+
+    "BC with mlp structure"
+    def __init__(self, input_channels=20, output_channels=9) -> None:
+        super().__init__()
+        self.relu = nn.ReLU()
+        self.lin1 = nn.Linear(input_channels, 256)
+        self.lin2 = nn.Linear(256, 256)
+        self.lin3 = nn.Linear(256, 128)
+        self.lin4 = nn.Linear(128, 64)
+        self.lin5 = nn.Linear(64, output_channels)
+       
+       
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.relu(x)
+        x = self.lin2(x)
+        x = self.relu(x)
+        x = self.lin3(x)
+        x = self.relu(x)
+        x = self.lin4(x)
+        x = self.relu(x)
+        x = self.lin5(x)
+
+        return x  
+    
+
+class Autoencoder(nn.Module):
+    def __init__(self, input_size=144*3+20*3, bottleneck_size=256):
+        super(Autoencoder, self).__init__()
+        self.input_size = input_size
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Linear(input_size, 1024),
+            # nn.BatchNorm1d(1024),
+            nn.LeakyReLU(negative_slope=0.01),
+            nn.Linear(1024, 512),
+            # nn.BatchNorm1d(512),
+            nn.LeakyReLU(negative_slope=0.01),
+            # ResidualBlock(512),
+            nn.Linear(512, 512),
+            # nn.BatchNorm1d(512),
+            nn.LeakyReLU(negative_slope=0.01),
+            nn.Linear(512, bottleneck_size),
+            # nn.BatchNorm1d(bottleneck_size),
+            nn.LeakyReLU(negative_slope=0.01),
+
+            # nn.Linear(256, 256),
+            # nn.BatchNorm1d(256),
+            # nn.LeakyReLU(negative_slope=0.01),
+            # nn.Linear(256, 256),
+            # nn.BatchNorm1d(256),
+            # nn.LeakyReLU(negative_slope=0.01),
+            # nn.Linear(256, 128),
+            # nn.BatchNorm1d(128),
+            # nn.LeakyReLU(negative_slope=0.01),
+            # ResidualBlock(128),
+            # nn.Linear(128, bottleneck_size),  # Additional layers to reach 16 linear layers
+            # nn.BatchNorm1d(bottleneck_size),
+            # nn.LeakyReLU(negative_slope=0.01),
+            # ... (Continue adding layers until you have 16 linear layers in total)
+        )
+        self.res1 = ResidualBlock(bottleneck_size)
+        self.res2 = ResidualBlock(bottleneck_size)
+        # Decoder
+        self.decoder = nn.Sequential(
+            # nn.Linear(bottleneck_size, 128),
+            # nn.BatchNorm1d(128),
+            # nn.LeakyReLU(negative_slope=0.01),
+            # ResidualBlock(128),
+            # nn.Linear(128, 256),
+            # nn.BatchNorm1d(256),
+            # nn.LeakyReLU(negative_slope=0.01),
+            # nn.Linear(256, 256),
+            # nn.BatchNorm1d(256),
+            # nn.LeakyReLU(negative_slope=0.01),
+            # nn.Linear(256, 256),
+            # nn.BatchNorm1d(256),
+            # nn.LeakyReLU(negative_slope=0.01),
+            # ResidualBlock(256),
+            nn.Linear(bottleneck_size, 512),
+            # nn.BatchNorm1d(512),
+            nn.LeakyReLU(negative_slope=0.01),
+            nn.Linear(512, 512),
+            # nn.BatchNorm1d(512),
+            nn.LeakyReLU(negative_slope=0.01),
+            # ResidualBlock(512),
+            nn.Linear(512, 1024),
+            # nn.BatchNorm1d(1024),
+            nn.LeakyReLU(negative_slope=0.01),
+            nn.Linear(1024, input_size)
+            # ... (Continue adding layers until you have 16 linear layers in total)
+        )
+
+    def forward(self, x):
+        # x = x.view(x.size(0), -1)  # Flatten the input
+        x = self.encoder(x)
+        x = self.res1(x)
+        x = self.res2(x)
+        x = self.decoder(x)
+        # x = x.view(-1, 1, self.input_size)  # Reshape back to original input shape
+        return x
+    def get_latent_vector(self, x):
+        x = x.view(x.size(0), -1)
+        x = self.encoder(x)
+        return x
+
+
+class CustomNetwork(nn.Module):
+    def __init__(self, num_classes =7, key_frame_output_size = 7, input_size=256):
+        super(CustomNetwork, self).__init__()
+
+
+        # LSTM Layers
+        # self.lstm1 = nn.LSTM(input_size=23, hidden_size=128, batch_first=True)
+        # self.lstm2 = nn.LSTM(input_size=128, hidden_size=256, batch_first=True)
+        
+        # Fully Connected Layers
+        self.fc1 = nn.Linear(input_size, 128)
+        self.fc2 = nn.Linear(128, 256)
+        self.fc3 = nn.Linear(256, 64)
+        
+        # Output Layers
+        self.classifier_output = nn.Linear(64, num_classes)
+        self.contact_indicator_output = nn.Linear(64, 1)
+        self.key_frame_output = nn.Linear(64, key_frame_output_size)
+
+    def forward(self, x):
+        # x shape: (batch_size, 100, 20)
+
+        # LSTM Layers
+        # x, _ = self.lstm1(x)
+        # x, _ = self.lstm2(x)
+
+        # # Selecting the last time step output for classification
+        # x = x[:, -1, :]
+
+        # Fully Connected Layers
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+
+        # Output Layers
+        # classifier_out = F.softmax(self.classifier_output(x), dim=1)
+        classifier_out = self.classifier_output(x)
+        contact_indicator_out = torch.sigmoid(self.contact_indicator_output(x))
+        key_frame_out = self.key_frame_output(x)  # Apply softmax/relu/linear based on your requirement
+
+        return classifier_out, contact_indicator_out, key_frame_out

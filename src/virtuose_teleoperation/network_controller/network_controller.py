@@ -252,12 +252,14 @@ class PoseActionClient(object):
         # print("self ALLLLLLEGRO allegro joints",self.allegro_joints)
 
     def __OnFingetipMergedPositionReceived(self, crisp_merged_poses_msg):
-        self.crispFingertipMerged = crisp_merged_poses_msg.poses[:] #use crispFingertipMerged[0].position.x
-
-        # IMPORTANT: To access values later, use crispFingertipMerged[0].position.x  0=index, 1=middle, 2=ring, 3=thumb
+        """
+        IMPORTANT: To access values later, use crispFingertipMerged[0].position.x  0=index, 1=middle, 2=ring, 3=thumb
         # For example, crispFingertipMerged[0].position.x gives you the x/y/z-coordinate of the position for the first pose.
         # Similarly, crispFingertipMerged[0].orientation.x would give you the x/y/z/w-component of the orientation quaternion
-        # for the first pose.    
+        # for the first pose.      
+        """
+        self.crispFingertipMerged = crisp_merged_poses_msg.poses[:] #use crispFingertipMerged[0].position.x
+            
     def joints_control(self, jgoal, setup=False):
         
         self.client.wait_for_server()

@@ -5,24 +5,39 @@ import torch.nn.functional as F
 
 
 
+# class ResidualBlock(nn.Module):
+#     """
+#     A residual block with dropout option
+#     """
+
+#     def __init__(self, in_channels, out_channels, kernel_size=3):
+#         super(ResidualBlock, self).__init__()
+#         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size, padding=1)
+#         self.bn1 = nn.BatchNorm2d(out_channels)
+#         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding=1)
+#         self.bn2 = nn.BatchNorm2d(out_channels)
+
+#     def forward(self, x_in):
+#         x = self.bn1(self.conv1(x_in))
+#         x = F.relu(x)
+#         x = self.bn2(self.conv2(x))
+#         return x + x_in
+
 class ResidualBlock(nn.Module):
-    """
-    A residual block with dropout option
-    """
-
-    def __init__(self, in_channels, out_channels, kernel_size=3):
+    def __init__(self, input_features):
         super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size, padding=1)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding=1)
-        self.bn2 = nn.BatchNorm2d(out_channels)
+        
+        self.fc = nn.Linear(input_features, input_features)
+        self.bn = nn.BatchNorm1d(input_features)
+        self.lrelu = nn.LeakyReLU(negative_slope=0.01)
+    
+    def forward(self, x):
 
-    def forward(self, x_in):
-        x = self.bn1(self.conv1(x_in))
-        x = F.relu(x)
-        x = self.bn2(self.conv2(x))
-        return x + x_in
+        out = self.fc(x)
+        out = self.bn(out)
+        out = self.lrelu(out)
 
+        return out + x
 
 
 class AE(nn.Module):
@@ -546,6 +561,32 @@ class BC_MLP_AHEE_yes_norm_ouput_hglove(nn.Module):
 
         return x  
     
+class BC_MLP_AHEE_yes_norm_ouput_hglove_ee(nn.Module):
+
+    "BC with mlp structure"
+    def __init__(self, input_channels=27, output_channels=12) -> None:
+        super().__init__()
+        self.relu = nn.ReLU()
+        self.lin1 = nn.Linear(input_channels, 256)
+        self.lin2 = nn.Linear(256, 256)
+        self.lin3 = nn.Linear(256, 128)
+        self.lin4 = nn.Linear(128, 64)
+        self.lin5 = nn.Linear(64, output_channels)
+       
+       
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.relu(x)
+        x = self.lin2(x)
+        x = self.relu(x)
+        x = self.lin3(x)
+        x = self.relu(x)
+        x = self.lin4(x)
+        x = self.relu(x)
+        x = self.lin5(x)
+
+        return x  
+    
 
 class Autoencoder(nn.Module):
     def __init__(self, input_size=144*3+20*3, bottleneck_size=256):
@@ -623,7 +664,7 @@ class Autoencoder(nn.Module):
         # x = x.view(-1, 1, self.input_size)  # Reshape back to original input shape
         return x
     def get_latent_vector(self, x):
-        x = x.view(x.size(0), -1)
+        # x = x.view(x.size(0), -1)
         x = self.encoder(x)
         return x
 

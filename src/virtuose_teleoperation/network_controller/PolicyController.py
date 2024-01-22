@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from network import BC_MLP, BC_MLP_EE, BC_MLP_AHEE, BC_MLP_AHEE_yes_vel_no_eff, BC_MLP_AHEE_no_vel_no_eff, BC_MLP_AHEE_yVel_nEff_yTact, BC_MLP_AHEE_no_eff_yes_ff, BC_MLP_AHEE_yes_norm, BC_MLP_AHEE_yes_norm_ouput_delta_q, BC_MLP_AH_only_ouput_delta_q, BC_MLP_AH_time_series_only_ouput_delta_q, BC_MLP_EETAC, BC_MLP_EE_HISTORY_TAC, BC_MLP_AHEE_yes_norm_ouput_hglove
+from network import BC_MLP, BC_MLP_EE, BC_MLP_AHEE, BC_MLP_AHEE_yes_vel_no_eff, BC_MLP_AHEE_no_vel_no_eff, BC_MLP_AHEE_yVel_nEff_yTact, BC_MLP_AHEE_no_eff_yes_ff, BC_MLP_AHEE_yes_norm, BC_MLP_AHEE_yes_norm_ouput_delta_q, BC_MLP_AH_only_ouput_delta_q, BC_MLP_AH_time_series_only_ouput_delta_q, BC_MLP_EETAC, BC_MLP_EE_HISTORY_TAC, BC_MLP_AHEE_yes_norm_ouput_hglove, BC_MLP_AHEE_yes_norm_ouput_hglove_ee
 from network import Autoencoder, CustomNetwork
 import rospy
 import numpy as np
@@ -388,7 +388,7 @@ class PolicyAH_time_series_only_output_delta_q_TAC():
 class PolicyAHFF_output_hglove():
     def __init__(self):
         self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove()
-        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\trained_policy_MLP\\Grasping_AHFF_epoch_97.pth"))
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\trained_policy_MLP\\Grasp_skill4_epoch_154.pth"))
         #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
     def output(self, allegro_joints, force_feedback):
         # Norm
@@ -404,41 +404,122 @@ class PolicyAHFF_output_hglove():
         print('index_norm', index_norm)
         print('ring_norm', ring_norm)
         print('thumb_norm', thumb_norm)
-        # Limit the value
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
         limit1 = 100
-        limit2 = 25
+        limit2 = 50
         thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
         index_norm = np.where(index_norm < limit1, 0, index_norm)
         middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
         ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
         input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+
 
         input = torch.from_numpy(input).float()
         hglove_delta = self.BC_MLP(input)
         predict_joint_angle = mapping(hglove_delta.detach().numpy())
 
         return predict_joint_angle
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+
+
+class PolicyAHFF_output_hglove_ee():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\trained_policy_MLP\\Reach_skill0_epoch_18.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm = np.linalg.norm(thumb_data)
+        index_norm = np.linalg.norm(index_data)
+        middle_norm = np.linalg.norm(middle_data)
+        ring_norm = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        index_norm = np.where(index_norm < limit1, 0, index_norm)
+        middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], ee_state))
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+
 
 
 class Classification_with_time_series_feature():
     def __init__(self):
-        self.AE = Autoencoder()
-        self.AE.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\trained_policy_MLP\\Grasping_AHFF_epoch_97.pth"))
-        self.Classifier = CustomNetwork()
-        self.Classifier.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\trained_policy_MLP\\Grasping_AHFF_epoch_97.pth"))
+        self.AE = Autoencoder(input_size=144*3+20*3, bottleneck_size=256).float()
+        self.AE.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\trained_policy_MLP\\AE_256_new_skill_epoch_856.pth"))
+        self.AE.eval()
+        self.Classifier = CustomNetwork().float()
+        self.Classifier.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\trained_policy_MLP\\Seg_256_new_skill_epoch_856.pth"))
+        self.Classifier.eval()
         #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
     def output(self,ee_state_history,joint_state_history, ff_norm_history, force_feedback_history, finger_state_history):
         #  Assume the shape of the ff is: 
 
 
-        ee_time_series_data = ee_state_history
-        joint_time_series_data = joint_state_history
-        ff_time_series_data = force_feedback_history
-        finger_time_series_data = finger_state_history
-        Seg_input = self.getitem(self, ee_time_series_data, joint_time_series_data, ff_norm_history, ff_time_series_data, finger_time_series_data)
-        predict_label = self.Seg_Net(Seg_input)
+        ee_time_series_data = np.array(ee_state_history)
+        joint_time_series_data = np.array(joint_state_history)
+        ff_norm_history = np.array(ff_norm_history)
+        ff_time_series_data = np.array(force_feedback_history)
+        finger_time_series_data = np.array(finger_state_history)
 
-        return predict_label
+        feature = self.getitem(ee_time_series_data, joint_time_series_data, ff_norm_history, ff_time_series_data, finger_time_series_data)
+        AE_input = torch.tensor(feature).float()
+        latent_feature = self.AE.get_latent_vector(AE_input)
+        predict_label, _, _ = self.Classifier(latent_feature)
+        
+        return predict_label.argmax().cpu().detach()
     
 
     def getitem(self, ee_time_series_data, joint_time_series_data, ff_norm_history, ff_time_series_data, finger_time_series_data):
@@ -472,8 +553,8 @@ class Classification_with_time_series_feature():
             
             feature_inputs.append(feature_input)
         concatenated_feature_inputs = np.concatenate(feature_inputs, axis=1).squeeze()
-        Seg_input = np.concatenate((concatenated_state_input, concatenated_feature_inputs))
-        return Seg_input
+        feature = np.concatenate((concatenated_state_input, concatenated_feature_inputs))
+        return feature
 
 
     def get_feature(self, ee_state,ff_data, ff_full_data, finger_state_data, ee_state_new, ff_data_new, ff_full_data_new, finger_state_data_new ):

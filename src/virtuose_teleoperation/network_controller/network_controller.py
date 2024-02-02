@@ -13,7 +13,7 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Int32
 from geometry_msgs.msg import PointStamped, Point, WrenchStamped, PoseArray
 from tf2_msgs.msg import TFMessage
-from PolicyController import Policy, Policy_EE, PolicyAHEE, PolicyAHEE_yes_vel_no_eff ,PolicyAHEE_no_vel_no_eff, PolicyBC_MLP_AHEE_yVel_nEff_yTact, PolicyAHEE_no_eff_yes_ff, PolicyAHEE_yes_norm, PolicyAHEE_yes_norm_delta_q , PolicyAH_yes_norm_delta_q, PolicyAH_yes_norm_output_delta_q, PolicyAHFF_output_delta_q, PolicyAH_only_output_delta_q, PolicyAH_time_series_only_output_delta_q, PolicyAHFF_output_delta_q_TAC, PolicyAH_time_series_only_output_delta_q_TAC, PolicyAHFF_output_hglove, Classification_with_time_series_feature, PolicyAHFF_output_hglove_ee
+from PolicyController import Classification_with_time_series_feature, Brick_reach, Brick_flip, Brick_touch, Brick_pull, Brick_push, Brick_pre_grasp, Brick_grasp, Brick_lift, Brick_release
 import numpy as np
 import csv
 import signal
@@ -355,14 +355,13 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class ActionPrediction(object):
-    def __init__(self,Policy_NN, Seg_net, ee_data, allegro_joints, interp_rate, fs ):
+    def __init__(self, Seg_net, ee_data, allegro_joints, interp_rate, fs ):
         
         self.nn_ee_pose_interpolation = np.zeros((10, 3))  #change it to 7 later
         self.nn_AH_joints_interpolation = np.zeros((10, 16))
         self.nn_ee_pose_butterfilter = np.zeros((interp_rate, 3))
         self.nn_AH_joints_butterfilter = np.zeros((interp_rate, 16))
 
-        self.Policy_NN = Policy_NN
         self.IM_ur5_buffer = np.array(ee_data)
         self.IM_ah_buffer = np.array(allegro_joints)
         self.IM_ee_vir_buffer = np.zeros(3)
@@ -387,176 +386,9 @@ class ActionPrediction(object):
         b, a = butter(order, normal_cutoff, btype='low', analog=False)
         y = lfilter(b, a, data)
         return y
-    def action_prediction_with_interpolation(self, i, ee_state, allegro_joints, tactile_data):
-        if (i%self.interp_rate == 0):
-
-            allegro_state = allegro_joints.copy()
-            nn_joints_pose = self.Policy_NN.output(allegro_state, tactile_data.copy())
-            nn_ee_pose = ee_state
-
-        
-            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose, num=self.interp_rate+1)[1:]
-            self.nn_AH_joints_interpolation = np.linspace(allegro_state, nn_joints_pose, num=self.interp_rate+1)[1:]
-            return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
-        else:
-            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
-                    
-    def action_prediction_with_interpolation_delta_q(self,i,  ee_state, allegro_joints, tactile_data):
-        if (i%interp_rate == 0):
-            # print("ACTION PRED IM_AH",IM_ah.allegro_joints)
-            # print("ACTION PRED",allegro_joints)
-
-            # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data,IM_sensors.tactile_data, IM_ah.allegro_joints, IM_ah.allegro_velocity)         
-            # print(nn_ee_pose_interpolation[i%10,0])
-            # print(nn_AH_joints_interpolation[i%10,15])
-
-            # nn_ee_pose = Policy_NN.output(IM_ur5.ee_data,IM_sensors.tactile_data, IM_ah.allegro_joints, IM_ah.allegro_velocity, IM_ah.allegro_joints_eff)
-            # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints, IM_ah.allegro_velocity, IM_ah.allegro_joints_eff)
-            # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints, IM_ah.allegro_velocity)
-            input_ee_delta = np.array(ee_state) - self.IM_ur5_buffer
-
-            input_ah_delta = np.array(allegro_joints) - self.IM_ah_buffer
-            # nn_ee_pose_delta, nn_joints_pose_delta = Policy_NN.output(input_ee_delta, input_ah_delta, tactile_data)
-            nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, input_ah_delta, tactile_data)
-            nn_ee_pose = np.array(ee_state[0:3])
-            # print(allegro_joints) 
-            # print(nn_joints_pose_delta)
-            nn_joints_pose = np.array(allegro_joints) + nn_joints_pose_delta
-            self.IM_ur5_buffer = np.array(ee_state)
-            self.IM_ah_buffer = np.array(allegro_joints)
-
-            # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints, tactile_data)
-
-        # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data, IM_ah.allegro_joints)
-
-            # IM_ur5.ee_data[i]   i=0-x,1-y,2-z,3-rx,4-ry,5-rz,6-rw 
-            # IM_sensors.tactile_data.finger[i].$  finger=thumb,index,middle,ring   i=0,1,2,3   $=xyz
-
-        # Publish processed data if necessary
-            # nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose, num=interp_rate)
-            self.nn_ee_pose_interpolation = nn_ee_pose
-            self.nn_AH_joints_interpolation = nn_joints_pose
-            # print("self.nn_AH_joints_interpolation",self.nn_AH_joints_interpolation)
-            return self.nn_ee_pose_interpolation, self.nn_AH_joints_interpolation
-        else:
-            # print("ELSE.nn_AH_joints_interpolation",self.nn_AH_joints_interpolation)
-
-            return self.nn_ee_pose_interpolation, self.nn_AH_joints_interpolation
-        #     self.nn_AH_joints_interpolation = np.linspace(np.array(allegro_joints), nn_joints_pose, num=interp_rate)
-        #     print("self.nn_AH_joints_interpolation",self.nn_AH_joints_interpolation)
-        #     return self.nn_ee_pose_interpolation[i%interp_rate], self.nn_AH_joints_interpolation[i%interp_rate]
-        # else:
-        #     print("ELSE.nn_AH_joints_interpolation",self.nn_AH_joints_interpolation)
-
-        #     return self.nn_ee_pose_interpolation[i%interp_rate], self.nn_AH_joints_interpolation[i%interp_rate]
-                    
-    def action_prediction_without_interpolation_delta_q_filtered(self,i, ee_state, allegro_joints, tactile_data):
-        # self.IM_xx_buffer is used to keep the filtered value
-        if (i%interp_rate == 0):
-            a = 0.1
-            # input_ee_delta = np.array(ee_state) - self.IM_ur5_buffer
-
-            # input_ah_delta = np.array(allegro_joints) - self.IM_ah_buffer
-            # nn_ee_pose_delta, nn_joints_pose_delta = Policy_NN.output(input_ee_delta, input_ah_delta, tactile_data)
-            nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
-            nn_ee_pose_predict = np.array(ee_state[0:3])
-            nn_joints_pose_predict = np.array(allegro_joints) + nn_joints_pose_delta
-            # self.IM_ur5_buffer += a * (nn_ee_pose_predict - self.IM_ur5_buffer)
-            self.IM_ah_buffer += a * (nn_joints_pose_predict - self.IM_ah_buffer)
-
-            return  nn_ee_pose_predict, self.IM_ah_buffer
-        else:
-
-            return nn_ee_pose_predict,  self.IM_ah_buffer
-
-    def action_prediction_delta_q_butter_filtered(self,i, ee_state, allegro_joints, tactile_data):
-
-        if (i%self.interp_rate == 0):
-            filtered_nn_joint_pose_delta = np.zeros((self.interp_rate, 16))
-            ah_previous = self.IM_ah_buffer.copy()
-            for m in range(16):
-                filtered_nn_joint_pose_delta[:, m] = self.butter_lowpass_filter(self.record_action[:, m])
-            self.nn_ee_pose_butterfilter = np.tile(ee_state[0:3], (self.interp_rate, 1))
-            self.nn_AH_joints_butterfilter = np.tile(allegro_joints, (self.interp_rate, 1)) + filtered_nn_joint_pose_delta
-            # print(self.nn_AH_joints_butterfilter.shape)
-            nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
-            self.record_action[i%self.interp_rate, :] = nn_joints_pose_delta
-            return self.nn_ee_pose_butterfilter[0], self.nn_AH_joints_butterfilter[0]
-        else:
-            nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
-            self.record_action[i%self.interp_rate, :] = nn_joints_pose_delta
-            return self.nn_ee_pose_butterfilter[i%self.interp_rate], self.nn_AH_joints_butterfilter[i%self.interp_rate]
-
-    def action_prediction_with_interpolation_delta_q_filtered(self,i, ee_state, allegro_joints, tactile_data):
-        
-        if (i%self.interp_rate == 0):
-            a = 0.05
-
-            ah_previous = self.IM_ah_buffer.copy()
-            nn_joints_pose = self.Policy_NN.output( allegro_joints.copy(), tactile_data.copy())
-            # nn_joints_pose_delta = self.Policy_NN.output( allegro_joints, tactile_data)
-            # nn_joints_pose_delta = self.Policy_NN.output( allegro_joints)
-            nn_ee_pose_predict = np.array(ee_state[0:3])
-            # self.IM_ur5_buffer += a * (nn_ee_pose_predict - self.IM_ur5_buffer)
-            self.IM_ah_buffer += a * (nn_joints_pose - self.IM_ah_buffer)
-            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose_predict, num=self.interp_rate+1)[1:]
-            self.nn_AH_joints_interpolation = np.linspace(ah_previous, self.IM_ah_buffer, num=self.interp_rate+1)[1:]
-            return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
-        else:
-            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
-        
-    def action_prediction_with_time_series_input_delta_q(self,i,  ee_state, allegro_joints, tactile_data):
-        if (i%interp_rate == 0):
-            nn_joints_pose_delta, tactile_prediction = self.Policy_NN.output(self.IM_ah_buffer.copy(),  allegro_joints)
-            print('tactile_prediction', tactile_prediction)
-            nn_ee_pose = np.array(ee_state[0:3])
-            nn_joints_pose = np.array(allegro_joints) + nn_joints_pose_delta
-            self.IM_ur5_buffer = np.array(ee_state)
-            self.IM_ah_buffer = np.array(allegro_joints)
-            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose, num=self.interp_rate+1)[1:]
-            self.nn_AH_joints_interpolation = np.linspace(allegro_joints, nn_joints_pose, num=self.interp_rate+1)[1:]
-            for j in range(4):
-                if j == 3: 
-                    if tactile_prediction[j] > 0.2:
-                        self.nn_AH_joints_interpolation[:, 14] += 0.08
-                else:
-                    if tactile_prediction[j] > 0.2:
-                        self.nn_AH_joints_interpolation[:, 1+4*j] += 0.05
-                
-
-            return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
-        else:
-
-
-            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
-
-    def action_prediction_with_interpolation_delta_q_filtered_and_tactile_prediction(self,i, ee_state, allegro_joints, tactile_data):
-        
-        if (i%self.interp_rate == 0):
-            # a = 0.1
-
-            ah_previous = self.IM_ah_buffer.copy()
-            nn_joints_pose_delta, tactile_prediction = self.Policy_NN.output( allegro_joints, tactile_data)
-            # nn_joints_pose_delta = self.Policy_NN.output( allegro_joints)
-            print('tactile_prediction', tactile_prediction)
-            nn_ee_pose_predict = np.array(ee_state[0:3])
-            nn_joints_pose_predict = np.array(allegro_joints) + nn_joints_pose_delta
-            # self.IM_ur5_buffer += a * (nn_ee_pose_predict - self.IM_ur5_buffer)
-            # self.IM_ah_buffer += a * (nn_joints_pose_predict - self.IM_ah_buffer)
-            self.IM_ah_buffer = np.array(nn_joints_pose_predict)
-            self.nn_ee_pose_interpolation = np.linspace(ee_state[0:3], nn_ee_pose_predict, num=self.interp_rate+1)[1:]
-            self.nn_AH_joints_interpolation = np.linspace(ah_previous, self.IM_ah_buffer, num=self.interp_rate+1)[1:]
-            for j in range(4):
-                if j == 3: 
-                    if tactile_prediction[j] > 0.1:
-                        self.nn_AH_joints_interpolation[:, 14] += 0.08
-                else:
-                    if tactile_prediction[j] > 0.1:
-                        self.nn_AH_joints_interpolation[:, 1+4*j] += 0.05
-                        self.nn_AH_joints_interpolation[:, 2+4*j] += 0.05
-            return self.nn_ee_pose_interpolation[0], self.nn_AH_joints_interpolation[0]
-        else:
-            return self.nn_ee_pose_interpolation[i%self.interp_rate], self.nn_AH_joints_interpolation[i%self.interp_rate]
+    def action_prediction_with_switchNetwork(self, Policy_NN,  ee_data, allegro_joints, tactile_data):
+        nn_joints_pose, ee_predict_control = Policy_NN.output( allegro_joints.copy(), tactile_data.copy(), ee_data.copy())
+        return ee_predict_control, nn_joints_pose
         
     def label_prediction(self,i, ee_data, allegro_joints, tactile_data, finger_raw_state):
         finger_raw_state_0 = np.array(([finger_raw_state[0].position.x, finger_raw_state[0].position.y,finger_raw_state[0].position.z, finger_raw_state[0].orientation.x, finger_raw_state[0].orientation.y, finger_raw_state[0].orientation.z, finger_raw_state[0].orientation.w]))
@@ -685,28 +517,65 @@ class Switch_Network():
     def __init__(self):
 
         self.network_switch=rospy.Subscriber('/network_switch', Int32, self.__OnSwitchReceived)
-
+        self.Network1 = Brick_reach() 
+        self.Network2 = Brick_flip()
+        self.Network3 = Brick_touch()
+        self.Network4 = Brick_pull()
+        self.Network5 = Brick_push() 
+        self.Network6 = Brick_pre_grasp()
+        self.Network7 = Brick_grasp()
+        self.Network8 = Brick_lift()
+        self.Network9 = Brick_release()
+        self.Network = Brick_reach()
+    
+    
+    
     def __OnSwitchReceived(self,msg):
         received_value = msg.data
 
+
+        def handle_case_1():
+            rospy.loginfo("Handling case 1.")
+            return self.Network1
+
+        def handle_case_2():
+            rospy.loginfo("Handling case 2.")
+            return self.Network2
+        def handle_case_3():
+            rospy.loginfo("Handling case 3.")
+            return self.Network3
+        def handle_case_4():
+            rospy.loginfo("Handling case 4.")
+            return self.Network4
+        def handle_case_5():
+            rospy.loginfo("Handling case 5.")
+            return self.Network5
+        def handle_case_6():
+            rospy.loginfo("Handling case 6.")
+            return self.Network6
+        def handle_case_7():
+            rospy.loginfo("Handling case 7.")
+            return self.Network7
+        def handle_case_8():
+            rospy.loginfo("Handling case 8.")
+            return self.Network8
+        def handle_case_9():
+            rospy.loginfo("Handling case 9.")
+            return self.Network9
+        
         # Switch case based on the received integer
         switch_dict = {
             1: handle_case_1,
             2: handle_case_2,
             3: handle_case_3,
+            4: handle_case_4,
+            5: handle_case_5,
+            6: handle_case_6,
+            7: handle_case_7,
+            8: handle_case_8,
+            9: handle_case_9,
             # Add more cases as needed
         }
-
-        def handle_case_1():
-            rospy.loginfo("Handling case 1.")
-
-        def handle_case_2():
-            rospy.loginfo("Handling case 2.")
-
-        def handle_case_3():
-            rospy.loginfo("Handling case 3.")
-
-
         # Default case if the received value doesn't match any case
         default_case = lambda: rospy.loginfo("Received value does not match any case.")
 
@@ -722,7 +591,7 @@ if __name__ == '__main__':
         IM_sensors = CrispFingertipNode()
         IM_switchNetwork = Switch_Network()
         
-        selectedNetwork=IM_switchNetwork.Network
+        # selectedNetwork=IM_switchNetwork.Network
 
         # Policy_NN = PolicyAHFF_output_hglove_ee()
         Seg_Net = Classification_with_time_series_feature()
@@ -739,7 +608,7 @@ if __name__ == '__main__':
         interp_rate=10
         rate = rospy.Rate(interp_rate*freq_net) #Hz
         # IM_AP = ActionPrediction(Policy_NN, IM_ur5.ee_data.copy(), setup_AH_temp, interp_rate, interp_rate*freq_net)
-        IM_AP = ActionPrediction(Policy_NN, Seg_Net, IM_ur5.ee_data.copy(), setup_AH_temp, interp_rate, interp_rate*freq_net)
+        IM_AP = ActionPrediction( Seg_Net, IM_ur5.ee_data.copy(), setup_AH_temp, interp_rate, interp_rate*freq_net)
         while not rospy.is_shutdown():
 
             
@@ -763,7 +632,8 @@ if __name__ == '__main__':
                 #    setup_hand=IM_ah.joints_control([0.0,0.0,0.0,-0.0,    0.0,0.0,0.0,-0.0,  0.0,0.0,0.0,-0.0, 1.49,-0.0,0.0,-0.0],True)
 
                 # nn_ee_pose, nn_joints_pose_interpolation = IM_AP.action_prediction_with_interpolation_delta_q_filtered(i,  IM_ur5.ee_data.copy(), IM_ah.allegro_joints.copy(), IM_sensors.ff_data.copy())
-                nn_ee_pose, nn_joints_pose_interpolation = IM_AP.label_prediction(i,  IM_ur5.ee_data.copy(), IM_ah.allegro_joints.copy(), IM_sensors.ff_data.copy(), IM_ah.crispFingertipMerged.copy())
+                # nn_ee_pose, nn_joints_pose_interpolation = IM_AP.label_prediction(i,  IM_ur5.ee_data.copy(), IM_ah.allegro_joints.copy(), IM_sensors.ff_data.copy(), IM_ah.crispFingertipMerged.copy())
+                nn_ee_pose, nn_joints_pose_interpolation = IM_AP.action_prediction_with_switchNetwork(selectedNetwork,  IM_ur5.ee_data.copy(), IM_ah.allegro_joints.copy(), IM_sensors.ff_data.copy())
                 # print(nn_ee_pose)
                 # print("NETWORK INPUT",IM_sensors.ff_data)
 

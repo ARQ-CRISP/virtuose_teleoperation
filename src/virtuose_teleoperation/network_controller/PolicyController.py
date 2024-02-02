@@ -442,7 +442,7 @@ class PolicyAHFF_output_hglove():
 class PolicyAHFF_output_hglove_ee():
     def __init__(self):
         self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
-        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\trained_policy_MLP\\Reach_skill0_epoch_18.pth"))
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Go_back_to_setup_tomato.pth"))
         #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
     def output(self, allegro_joints, force_feedback, ee_state):
         # Norm
@@ -451,10 +451,10 @@ class PolicyAHFF_output_hglove_ee():
         middle_data = force_feedback['middle']
         ring_data = force_feedback['ring']
         # print("force_feedback",force_feedback)
-        thumb_norm = np.linalg.norm(thumb_data)
-        index_norm = np.linalg.norm(index_data)
-        middle_norm = np.linalg.norm(middle_data)
-        ring_norm = np.linalg.norm(ring_data)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
         # print('index_norm', index_norm)
         # print('ring_norm', ring_norm)
         # print('thumb_norm', thumb_norm)
@@ -468,16 +468,28 @@ class PolicyAHFF_output_hglove_ee():
         # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
         limit1 = 100
         limit2 = 50
-        thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
-        index_norm = np.where(index_norm < limit1, 0, index_norm)
-        middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
-        ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
         #Normalize:
         index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
         middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
         ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
         thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
-        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], ee_state))
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+
+
 
 
         input = torch.from_numpy(input).float()

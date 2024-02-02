@@ -1,0 +1,60 @@
+Wipe UR5
+wipe1 2.7 7.33
+wipe2 0.68 6.11
+wipe3 0.0 5.5
+wipe4 1.11 9.36
+wipe5 0.85 9.75
+wipe6 1.00 6.43
+wipe7 0.50 5.70
+wipe8 1.00 6.98
+wipe9 0.95 10.0
+wip10 0.85 9.30
+
+
+Squeeze AllegroHand
+Sq1 1.50 3.52
+sq2 1.20 3.00
+sq3 0.85 2.5
+sq4 wrong
+sq5 1.05 3.00
+sq6 0.75 3.00
+sq7 0.78 3.00
+sq8 0.78 2.50
+sq9 1.31 3.5
+sq10 0.64 3.00
+
+LightGrasp AllegroHand
+lg1 0.22 2.5
+lg2 1.00 3.00
+lg3 0.69 3.00
+lg4 0.83 2.5
+lg5 0.85 2.5
+lg6 1.06 2.5
+lg7 1.15 3.0
+lg8 0.81 2.5
+lg9 2.15 5.0
+lg10 1.05 3.0
+
+VerticalFlip endValue Delta
+vp4 4.0
+vp5 4.0
+vp6 6.5
+vp7 5.0
+vp8 3.0
+vp9 5.0
+v10 4.0
+v11 5.0
+v12 6.0
+v13 3.0
+
+PressButton
+pb1 1.5 3.0
+pb2 2.0 4.0
+pb3 0.29 3.0
+pb4 0.13 2.0
+pb5 0.72 2.5
+pb6 3.0 5.0
+pb7 1.0 2.5
+pb8 0.85 2.0
+pb9 0.5 1.75
+pb10 1.0 2.5

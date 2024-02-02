@@ -183,7 +183,7 @@ class Cartesian_Mapping:
 
 
             ####################COMMENT OUT target.M = current_rotation.M*self.init_rotation.M.Inverse() FOR DISABLING ROTATION, IF UNCOMMENTED ROTATION IS ACTIVE############### 
-            # target.M = current_rotation.M*self.init_rotation.M.Inverse()
+            target.M = current_rotation.M*self.init_rotation.M.Inverse()
 
 
 

@@ -1,11 +1,11 @@
 <launch>
-<arg name="bagname"   default="AH2_grasp_brick_BC_tactile_check_100hz"/>
+<arg name="bagname"   default="Place_and_release_1"/>
 <arg name="start_time"   default=""/>
     <!-- <node pkg="rosbag" type="record" name="the_recorder" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /in_virtuose_force /out_index_pose /out_middle_pose /out_thumb_pose /delta_pose_index /delta_pose_middle /delta_pose_thumb /out_virtuose_physical_pose /relaxed_ik/ee_pose_goals /relaxed_ik/joint_angle_solutions /ur5/tf -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" > -->
 
     <!-- <node pkg="rosbag" type="record" name="the_recorder2" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /delta_articular_middle /delta_articular_index /delta_articular_thumb  -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" >
         <param name="buffer_size" value="16384"/> 
-        <param name="chunk_size" value="4096"/>
+        <param name="chunk_size" value="4096"/>/checkout/cart/
     </node> -->
 
   
@@ -20,7 +20,8 @@
         Crisp Sensors /Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /xServTopic -->
 
 <!-- LFD topics -->
-    <node pkg="rosbag" type="record" name="the_recorder" args="/relaxed_ik/ee_pose_goals /ur5/tf /allegroHand_0/joint_states /crisp_merged_poses /Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /xServTopic -O /home/hair/rosbag_LFD/$(arg bagname)_$(arg start_time)" >
+    <node pkg="rosbag" type="record" name="the_recorder" args="/out_virtuose_physical_pose /relaxed_ik/ee_pose_goals /ur5/tf /delta_articular_middle /delta_articular_index /delta_articular_thumb /allegroHand_0/joint_states /crisp_merged_poses /Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /crisp_merged_poses /xServTopic -O /home/hair/rosbag_LFD/$(arg bagname)_$(arg start_time)" >
+   
         <param name="buffer_size" value="16384"/> 
         <param name="chunk_size" value="4096"/>
     </node>

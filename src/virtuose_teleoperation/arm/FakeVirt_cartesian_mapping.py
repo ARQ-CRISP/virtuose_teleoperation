@@ -109,7 +109,7 @@ class FakeCartesian_Mapping:
     def callback_FAKEVIRTUOSE(self, msg):
         current_pose = fromTransform(msg.virtuose_physical_pose)
         current_rotation = fromTransform(msg.virtuose_physical_pose)
-        current_pose = self.transform_pose(current_pose)
+        # current_pose = self.transform_pose(current_pose)
 
         pos_fixed = list(current_pose.p)
         pos_fixed[0] *= -1
@@ -120,7 +120,10 @@ class FakeCartesian_Mapping:
         if self.init_pose is not None:
             ee_pose_goals_msg = EEPoseGoals()
             target = Frame()
-            target.p = self.init_pose.p - self.latest_pose.p
+            # target.p = self.init_pose.p - self.latest_pose.p ########################### IN THIS CASE out_virtuose_physical pose IS ALREADY A DELTA
+
+            target.p = self.latest_pose.p
+
             target.M = Rotation() #current_pose.M
             # target.M = current_pose.M
             ####################COMMENT OUT target.M = current_rotation.M*self.init_rotation.M.Inverse() FOR DISABLING ROTATION, IF UNCOMMENTED ROTATION IS ACTIVE############### 
@@ -129,7 +132,7 @@ class FakeCartesian_Mapping:
             # print("current_pose.m \n\n\n\n\n", current_rotation.M)
             ee_pose_goals_msg.ee_poses.append(pm.toMsg(target))
             self.ee_pose_goals_pub.publish(ee_pose_goals_msg)
-                        
+            # print("CURRENT CARTESIAN DISPL",ee_pose_goals_msg)           
         else:
             self.init_pose = current_pose
             

@@ -10,6 +10,7 @@ from virtuose_teleoperation.msg import PoseControlAction,PoseControlGoal
 # from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControlResult, PoseControlFeedback
 
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Int32
 from geometry_msgs.msg import PointStamped, Point, WrenchStamped, PoseArray
 from tf2_msgs.msg import TFMessage
 from PolicyController import Policy, Policy_EE, PolicyAHEE, PolicyAHEE_yes_vel_no_eff ,PolicyAHEE_no_vel_no_eff, PolicyBC_MLP_AHEE_yVel_nEff_yTact, PolicyAHEE_no_eff_yes_ff, PolicyAHEE_yes_norm, PolicyAHEE_yes_norm_delta_q , PolicyAH_yes_norm_delta_q, PolicyAH_yes_norm_output_delta_q, PolicyAHFF_output_delta_q, PolicyAH_only_output_delta_q, PolicyAH_time_series_only_output_delta_q, PolicyAHFF_output_delta_q_TAC, PolicyAH_time_series_only_output_delta_q_TAC, PolicyAHFF_output_hglove, Classification_with_time_series_feature, PolicyAHFF_output_hglove_ee
@@ -43,7 +44,9 @@ class Network_FakeVirtuose():
         self.ur5_joints_setup = [2.62, -2.11, -2.04, -0.38, 1.67, -0.92]
         self.ur5_joints_data = [0, 0, 0, 0, 0, 0]
         self.setup_msg=out_virtuose_physical_pose()
-        
+
+
+
     def __OnUr5EEposeReceived(self, tf_message):
         # Process ur5_ee_pose
         transform = tf_message.transforms[0]
@@ -68,6 +71,7 @@ class Network_FakeVirtuose():
         self.ur5_joints_data[3] = joints_state.position[3]
         self.ur5_joints_data[4] = joints_state.position[4]
         self.ur5_joints_data[5] = joints_state.position[5]
+
 
     def go2setupPosition(self):
 
@@ -677,6 +681,38 @@ class ActionPrediction(object):
         normalized_array = 1 / (1 + np.exp(-k*(array - b)))
         return normalized_array
 
+class Switch_Network():
+    def __init__(self):
+
+        self.network_switch=rospy.Subscriber('/network_switch', Int32, self.__OnSwitchReceived)
+
+    def __OnSwitchReceived(self,msg):
+        received_value = msg.data
+
+        # Switch case based on the received integer
+        switch_dict = {
+            1: handle_case_1,
+            2: handle_case_2,
+            3: handle_case_3,
+            # Add more cases as needed
+        }
+
+        def handle_case_1():
+            rospy.loginfo("Handling case 1.")
+
+        def handle_case_2():
+            rospy.loginfo("Handling case 2.")
+
+        def handle_case_3():
+            rospy.loginfo("Handling case 3.")
+
+
+        # Default case if the received value doesn't match any case
+        default_case = lambda: rospy.loginfo("Received value does not match any case.")
+
+        # Execute the corresponding case or default if not found
+        self.Network=switch_dict.get(received_value, default_case)()    
+
 if __name__ == '__main__':
     try:
         rospy.init_node('NNetwork_Controller')
@@ -684,37 +720,15 @@ if __name__ == '__main__':
         IM_ur5 = Network_FakeVirtuose()
         IM_ah = PoseActionClient()
         IM_sensors = CrispFingertipNode()
+        IM_switchNetwork = Switch_Network()
+        
+        selectedNetwork=IM_switchNetwork.Network
 
-        # Policy_NN = Policy()  # Initialize Policy class
-        # Policy_NN = Policy_EE() #  Initialize Policy class
-        # Policy_NN = PolicyBC_MLP_AHEE_yVel_nEff_yTact()
-
-        # Policy_NN = PolicyAHEE() #  Initialize Policy class
-        # Policy_NN = PolicyAHEE_yes_vel_no_eff()
-        # Policy_NN = PolicyAHEE_yes_norm()
-        # Policy_NN = PolicyAH_yes_norm_output_delta_q()
-        # Policy_NN = PolicyAHFF_output_delta_q_TAC()
-        # Policy_NN = PolicyAHFF_output_hglove()
-        Policy_NN = PolicyAHFF_output_hglove_ee()
+        # Policy_NN = PolicyAHFF_output_hglove_ee()
         Seg_Net = Classification_with_time_series_feature()
-        # Policy_NN = PolicyAH_time_series_only_output_delta_q_TAC()
-        # Policy_NN = PolicyAH_only_output_delta_q()
-        # Policy_NN = PolicyAH_time_series_only_output_delta_q()
-        # Policy_NN = PolicyAHFF_output_delta_q()
-        # Policy_NN = PolicyAHEE_no_vel_no_eff()
-        # setup_AH_temp=[0.17,0.47,0.25,-0.27,    0.18,0.50,0.28,-0.14,  0.12,0.72,0.44,-0.25,  1.49,-0.07,0.31,-0.16]
-        # setup_AH_temp=[0.0,0.79,0.52,-0.21,    -0.00,0.75,0.61,-0.14,  0.14,1.01,0.61,-0.13,  1.49,-0.06,0.29,-0.19]
-        # setup_AH_temp = [0.15, 0.82, 0.46, -0.13,    0.14, 0.84, 0.47, -0.10,       0.26, 0.91, 0.68,-0.14,    1.49, -0.05, 0.26, -0.188]   ####Top grasp
-        # setup_AH_temp = [-0.04, 0.52, 0.28, 0.29,      -0.03, 0.52, 0.31, 0.30,      0.00, 0.44, 0.26, 0.19,     1.49, -0.14, 0.11, -0.20]   ###Side grasping
-        # setup_AH_temp = [0.07, 0.166, 0.04, 0.12,     0.04, 0.18, 0.04, 0.11,       0.07, 0.53, 0.14, 0.015,      1.49, -0.14, 0.119, -0.145]  ###Rotation
 
-        # setup_AH_temp = [0.0, 0.0, 0.0, -0.0,    0.0, 0.0, 0.0, -0.0,       0.0, 0.0, 0.0,0.0,    1.49, -0.05, 0.26, -0.188]   ####Top grasp
-        # setup_AH_temp = [0.07, 0.42, 0.19, 0.05,    0.07, 0.42, 0.20, 0.06,       0.13, 0.4, 0.23, -0.04,    1.49, -0.12, 0.12, -0.20]   ####Top grasp
         setup_AH_temp = [0.09, 0.48, 0.15, -0.02,    0.09, 0.38, 0.27, 0.05,       0.19, 0.44, 0.25, -0.06,    1.49, -0.04, 0.17, -0.20]
-        # setup_AH_temp =    [0.1, 0.1, 0.0, 0.2,\
-        #     0.1, 0.1, 0.0, 0.2,\
-        #     0.1, 0.1, 0.0, 0.0,\
-        #     1.49, -0.05, 0.26, -0.188] 
+
         
         ee_pose_fakevirtuose=out_virtuose_physical_pose()
         setup=True #true to skip the setup phase
@@ -728,6 +742,7 @@ if __name__ == '__main__':
         IM_AP = ActionPrediction(Policy_NN, Seg_Net, IM_ur5.ee_data.copy(), setup_AH_temp, interp_rate, interp_rate*freq_net)
         while not rospy.is_shutdown():
 
+            
             if setup==False:
                 rospy.loginfo("GOING TO SETUP POSITION")
                 setup=IM_ur5.go2setupPosition()
@@ -741,7 +756,8 @@ if __name__ == '__main__':
             # Call Policy.output with necessary inputs from subscribers
             # nn_ee_pose, nn_joints_pose = Policy_NN.output(IM_ur5.ee_data,IM_sensors.tactile_data, IM_ah.allegro_joints, IM_ah.allegro_velocity, IM_ah.allegro_joints_eff)
             else:
-
+                selectedNetwork=IM_switchNetwork.Network
+                print(selectedNetwork)
                 if setup_hand==True:
                    setup_hand=IM_ah.joints_control(setup_AH_temp,True) 
                 #    setup_hand=IM_ah.joints_control([0.0,0.0,0.0,-0.0,    0.0,0.0,0.0,-0.0,  0.0,0.0,0.0,-0.0, 1.49,-0.0,0.0,-0.0],True)

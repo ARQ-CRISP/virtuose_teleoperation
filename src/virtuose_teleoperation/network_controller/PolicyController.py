@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from network import  BC_MLP_AHEE_yes_norm_ouput_hglove_ee
+from network import  BC_MLP_AHEE_yes_norm_ouput_hglove_ee, BC_MLP_AHEE_yes_orientation
 from network import Autoencoder, CustomNetwork
 import rospy
 import numpy as np
@@ -205,10 +205,10 @@ class Brick_touch():
         normalized_array = 1 / (1 + np.exp(-k*(array - b)))
         return normalized_array
     
-class Brick_pull():
+class Brick_wipe():
     def __init__(self):
         self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
-        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Brick_demonstration\\Pull_skill.pth"))
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Brick_demonstration\\Wipe_skill.pth"))
         #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
     def output(self, allegro_joints, force_feedback, ee_state):
         # Norm
@@ -337,10 +337,76 @@ class Brick_push():
         normalized_array = 1 / (1 + np.exp(-k*(array - b)))
         return normalized_array
     
+class Brick_pull():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Brick_demonstration\\Pull_skill.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+
+
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+
 class Brick_pre_grasp():
     def __init__(self):
         self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
-        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Brick_demonstration\\Center_grasp_skill.pth"))
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Brick_demonstration\\Pre_grasp_skill.pth"))
         #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
     def output(self, allegro_joints, force_feedback, ee_state):
         # Norm
@@ -604,6 +670,645 @@ class Brick_release():
         return normalized_array
 
 
+class Tomato_reach():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Reach_skill_tomato.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+
+
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+
+class Tomato_pull():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Pull_skill_tomato.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+
+
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+
+class Tomato_pre_grasp():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Center_grasp_tomato.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+
+
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+    
+
+class Tomato_grasp():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Grasp_skill_tomato.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+
+
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+
+class Tomato_transport_up():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Transport_up_skill_tomato.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+    
+class Tomato_transport_center():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Transport_forward_skill_tomato.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+    
+    
+class Tomato_place_release():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Place_and_release_skill_tomato.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+    
+class Tomato_go_to_setup():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_norm_ouput_hglove_ee()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Tomato_demonstration\\Go_back_to_setup_tomato.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+    
+
+class Shake_up():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_orientation()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Rotate_bottle\\Shake_up_skill.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+
+class Shake_down():
+    def __init__(self):
+        self.BC_MLP = BC_MLP_AHEE_yes_orientation()
+        self.BC_MLP.load_state_dict(torch.load("C:\\catkin_ws\\src\\virtuose_teleoperation\\src\\virtuose_teleoperation\\network_controller\\Rotate_bottle\\Shake_down_skill.pth"))
+        #Top grasp: Grasp_proper_dataset_AHFF_out_hglove_epoch_74.pth
+    def output(self, allegro_joints, force_feedback, ee_state):
+        # Norm
+        thumb_data = force_feedback['thumb']
+        index_data = force_feedback['index']
+        middle_data = force_feedback['middle']
+        ring_data = force_feedback['ring']
+        # print("force_feedback",force_feedback)
+        thumb_norm_data = np.linalg.norm(thumb_data)
+        index_norm_data = np.linalg.norm(index_data)
+        middle_norm_data = np.linalg.norm(middle_data)
+        ring_norm_data = np.linalg.norm(ring_data)
+        # print('index_norm', index_norm)
+        # print('ring_norm', ring_norm)
+        # print('thumb_norm', thumb_norm)
+        # # Limit the value
+        # limit1 = 100
+        # limit2 = 25
+        # thumb_norm = np.where(thumb_norm < limit1, 0, thumb_norm)
+        # index_norm = np.where(index_norm < limit1, 0, index_norm)
+        # middle_norm = np.where(middle_norm < limit2, 0, middle_norm)
+        # ring_norm = np.where(ring_norm < limit1, 0, ring_norm)
+        # input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm]))
+        limit1 = 100
+        limit2 = 50
+        thumb_norm = np.where(thumb_norm_data < limit1, 0, thumb_norm_data)
+        index_norm = np.where(index_norm_data < limit1, 0, index_norm_data)
+        middle_norm = np.where(middle_norm_data < limit2, 0, middle_norm_data)
+        ring_norm = np.where(ring_norm_data < limit1, 0, ring_norm_data)
+        #Normalize:
+        index_norm = self.normalize_using_sigmoid(index_norm, -50, 400)
+        middle_norm = self.normalize_using_sigmoid(middle_norm, -50, 400)
+        ring_norm = self.normalize_using_sigmoid(ring_norm, -50, 400)
+        thumb_norm = self.normalize_using_sigmoid(thumb_norm, -50, 400)
+        #Binary ff
+        binary_force_feedback_data_0 = np.where(index_norm_data < limit1, 0, 1) #index
+        binary_force_feedback_data_1 = np.where(middle_norm_data < limit2, 0, 1) #mid
+        binary_force_feedback_data_2 = np.where(ring_norm_data < limit1, 0, 1) #ring
+        binary_force_feedback_data_3 = np.where(thumb_norm_data < limit1, 0, 1) #thumb
+
+        # binary_force_feedback_data = np.stack((binary_force_feedback_data_0, binary_force_feedback_data_1, binary_force_feedback_data_2, binary_force_feedback_data_3), axis=1)
+
+        input = np.concatenate((allegro_joints,  [index_norm], [index_norm], [ring_norm], [thumb_norm], [binary_force_feedback_data_0], [binary_force_feedback_data_0], [binary_force_feedback_data_2], [binary_force_feedback_data_3], ee_state[0:3]))
+
+
+        input = torch.from_numpy(input).float()
+        output = self.BC_MLP(input)
+        predict_joint_angle = mapping(output[0:9].detach().numpy())
+        predict_ee_control = output[9:].detach().numpy()
+
+        return predict_joint_angle, predict_ee_control
+    def normalize_using_sigmoid(self, array, min_val, max_val, k=0.02):
+        # Center the range around 0 and scale it
+        b = (max_val + min_val) / 2
+        # Apply the sigmoid function to the entire array
+        normalized_array = 1 / (1 + np.exp(-k*(array - b)))
+        return normalized_array
+    
 
 class Classification_with_time_series_feature():
     def __init__(self):

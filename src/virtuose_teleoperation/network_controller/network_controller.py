@@ -13,7 +13,7 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Int32
 from geometry_msgs.msg import PointStamped, Point, WrenchStamped, PoseArray
 from tf2_msgs.msg import TFMessage
-from PolicyController import Classification_with_time_series_feature, Brick_reach, Brick_flip, Brick_touch, Brick_pull, Brick_push, Brick_pre_grasp, Brick_grasp, Brick_lift, Brick_release
+from PolicyController import Classification_with_time_series_feature, Brick_reach, Brick_flip, Brick_touch, Brick_pull, Brick_push, Brick_pre_grasp, Brick_grasp, Brick_lift, Brick_release, Brick_wipe, Tomato_reach, Tomato_pull, Tomato_pre_grasp, Tomato_grasp, Tomato_transport_up, Tomato_transport_center, Tomato_place_release, Tomato_go_to_setup, Shake_up, Shake_down
 import numpy as np
 import csv
 import signal
@@ -517,19 +517,38 @@ class Switch_Network():
     def __init__(self):
 
         self.network_switch=rospy.Subscriber('/network_switch', Int32, self.__OnSwitchReceived)
-        self.Network1 = Brick_reach() 
-        self.Network2 = Brick_flip()
-        self.Network3 = Brick_touch()
-        self.Network4 = Brick_pull()
-        self.Network5 = Brick_push() 
-        self.Network6 = Brick_pre_grasp()
-        self.Network7 = Brick_grasp()
-        self.Network8 = Brick_lift()
-        self.Network9 = Brick_release()
-        self.Network = Brick_reach()
+        # self.Network1 = Brick_reach() 
+        # self.Network2 = Brick_flip()
+        # self.Network3 = Brick_touch()
+        # self.Network4 = Brick_pull()
+        # self.Network5 = Brick_push() 
+        # # self.Network4 = Brick_wipe()
+        # self.Network6 = Brick_pre_grasp()
+        # self.Network7 = Brick_grasp()
+        # self.Network8 = Brick_lift()
+        # self.Network9 = Brick_release()
+        # self.Network = Brick_reach()
     
-    
-    
+        # self.Network1 = Tomato_reach()
+        # self.Network2 = Brick_pull()
+        # self.Network3 = Tomato_pre_grasp()
+        # self.Network4 = Tomato_grasp()
+        # self.Network5 = Tomato_transport_up()
+        # self.Network6 = Tomato_transport_center()
+        # self.Network7 = Tomato_place_release()
+        # self.Network8 = Tomato_go_to_setup()
+        # self.Network9 = Tomato_go_to_setup()
+        # self.Network = Tomato_reach()
+        self.Network1 = Shake_up()
+        self.Network2 = Shake_down()
+        self.Network3 = Tomato_pre_grasp()
+        self.Network4 = Tomato_grasp()
+        self.Network5 = Tomato_transport_up()
+        self.Network6 = Tomato_transport_center()
+        self.Network7 = Tomato_place_release()
+        self.Network8 = Tomato_go_to_setup()
+        self.Network9 = Tomato_go_to_setup()
+        self.Network = Shake_up()
     def __OnSwitchReceived(self,msg):
         received_value = msg.data
 
@@ -597,11 +616,12 @@ if __name__ == '__main__':
         Seg_Net = Classification_with_time_series_feature()
 
         setup_AH_temp = [0.09, 0.48, 0.15, -0.02,    0.09, 0.38, 0.27, 0.05,       0.19, 0.44, 0.25, -0.06,    1.49, -0.04, 0.17, -0.20]
+        setup_AH_temp = [0.0, 0.0, 0.0, -0.0,    0.0, 0.0, 0.0, 0.0,       0.0, 0.0, 0.0, -0.00,    1.49, -0.00, 0.0, -0.0]
 
         
         ee_pose_fakevirtuose=out_virtuose_physical_pose()
         setup=True #true to skip the setup phase
-        setup_hand=True
+        setup_hand=False
         i = 0
 
         freq_net=10
@@ -641,10 +661,10 @@ if __name__ == '__main__':
                 ee_pose_fakevirtuose.virtuose_physical_pose.translation.x=nn_ee_pose[0]#0.013#nn_ee_pose[0]#0#nn_ee_pose[0]#2 # positive x robot move in metalbase direction, negative x robot move to the lab direction wrt initial pose
                 ee_pose_fakevirtuose.virtuose_physical_pose.translation.y=nn_ee_pose[1]#0# nn_ee_pose[1]#0 ###positive y robot up, negative robot down wrt initial pose
                 ee_pose_fakevirtuose.virtuose_physical_pose.translation.z=nn_ee_pose[2]#0.051#nn_ee_pose[2]#nn_ee_pose[2]#1 positive z robot go backward, negative z robot go forward wrt initial pos
-                ee_pose_fakevirtuose.virtuose_physical_pose.rotation.x=0 #nn_ee_pose[3]
-                ee_pose_fakevirtuose.virtuose_physical_pose.rotation.y=0 #nn_ee_pose[4]
-                ee_pose_fakevirtuose.virtuose_physical_pose.rotation.z=0 #nn_ee_pose[5]
-                ee_pose_fakevirtuose.virtuose_physical_pose.rotation.w=1 #nn_ee_pose[6]
+                ee_pose_fakevirtuose.virtuose_physical_pose.rotation.x=nn_ee_pose[3]#0 #nn_ee_pose[3]
+                ee_pose_fakevirtuose.virtuose_physical_pose.rotation.y=nn_ee_pose[4]#0 #nn_ee_pose[4]
+                ee_pose_fakevirtuose.virtuose_physical_pose.rotation.z=nn_ee_pose[5]#0 #nn_ee_pose[5]
+                ee_pose_fakevirtuose.virtuose_physical_pose.rotation.w=nn_ee_pose[6]#1 #nn_ee_pose[6]
 
                 print("nn_ee_pose",nn_ee_pose)
                 # print("ee_pose_fakevirtuose",ee_pose_fakevirtuose.virtuose_physical_pose.translation)

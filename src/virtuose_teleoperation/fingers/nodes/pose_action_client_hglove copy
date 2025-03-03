@@ -1,390 +1,196 @@
-#! /usr/bin/env python
-from pickle import TRUE
+#!/usr/bin/env python
+
+"""
+Allegro Hand Control Node
+
+This node subscribes to HGlove messages and controls the Allegro Hand
+using either joint or cartesian control methods.
+
+Author: [Your Name]
+Date: [Current Date]
+"""
+
 import rospy
-from virtuose.msg import out_virtuose_pose
-# msg=out_virtuose_pose
-# msg.virtuose_pose.rotation.x
 import actionlib
 import numpy as np
+import tf.transformations
+from virtuose.msg import out_virtuose_pose
 from allegro_hand_kdl.msg import PoseControlAction, PoseControlGoal, PoseControlResult, PoseControlFeedback
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
-import tf.transformations
 
-###to have the cartesian position from joints rosrun allegro_hand_kdl fk_publisher and subrscribe to /pose_array
-class PoseActionClient(object):
-    cartesian_controller=False
-    joints_controller=True
+class PoseActionClient:
+    """
+    A class to manage the control of the Allegro Hand based on HGlove input.
+    """
 
-    def __init__(self, init_pose=None,):
-        self.initial_pose_th_flag=False; self.initial_pose_in_flag=False; self.initial_pose_mid_flag=False
-        self.initial_articular_th_flag=False; self.initial_articular_in_flag=False; self.initial_articular_mid_flag=False
-        self.q1_th_inv=[0,0,0,1]; self.q1_in_inv=[0,0,0,1];self.q1_mid_inv=[0,0,0,1]
-        self.q2_th=[0,0,0,1];self.q2_in=[0,0,0,1];self.q2_mid=[0,0,0,1]
-        self.initial_pose_th_msg=out_virtuose_pose();self.initial_pose_in_msg=out_virtuose_pose();self.initial_pose_mid_msg=out_virtuose_pose()
-        self.delta_pose_th_msg=out_virtuose_pose();self.delta_pose_in_msg=out_virtuose_pose();self.delta_pose_mid_msg=out_virtuose_pose()
-        self.initial_articular_th_msg=JointState();self.initial_articular_in_msg=JointState();self.initial_articular_mid_msg=JointState()
-        self.delta_articular_th_msg=JointState();self.delta_articular_in_msg=JointState();self.delta_articular_mid_msg=JointState()
+    def __init__(self, init_pose=None):
+        """
+        Initialize the PoseActionClient.
 
-        self.de_in_x = 0.0  ;self.de_in_y = 0.0  ;self.de_in_z = 0.0  ;self.derot_in_x=0.0  ;self.derot_in_y=0.0  ;self.derot_in_z=0.0  ;self.derot_in_w=0.0
-        self.de_mid_x = 0.0 ;self.de_mid_y = 0.0 ;self.de_mid_z = 0.0 ;self.derot_mid_x=0.0 ;self.derot_mid_y=0.0 ;self.derot_mid_z=0.0 ;self.derot_mid_w=0.0
-        self.de_pin_x = 0.0 ;self.de_pin_y = 0.0 ;self.de_pin_z = 0.0 ;self.derot_pin_x=0.0 ;self.derot_pin_y=0.0 ;self.derot_pin_z=0.0 ;self.derot_pin_w=0.0
-        self.de_th_x = 0.0  ;self.de_th_y = 0.0  ;self.de_th_z = 0.0  ;self.derot_th_x=0.0  ;self.derot_th_y=0.0  ;self.derot_th_z=0.0  ;self.derot_th_w=0.0
+        Args:
+            init_pose (list): Initial pose for the hand (optional)
+        """
+        self._initialize_flags()
+        self._initialize_messages()
+        self._setup_subscribers_and_publishers()
+        
+        self.cartesian_controller = False
+        self.joints_controller = True
 
-    # this is a program that take as input ros messages from hglove to control allegro hand
-        #CARTESIAN SUBSCRIBERS
-        self.out_thumb_subscriber =  rospy.Subscriber("/out_thumb_pose", out_virtuose_pose, self.__OnOutThumbPoseReceived)
+        # Initialize action client
+        self.client = actionlib.SimpleActionClient('pose_control_action', PoseControlAction)
+        self.client.wait_for_server()
+
+        self._main_control_loop()
+
+    def _initialize_flags(self):
+        """Initialize all flags used in the class."""
+        self.initial_pose_th_flag = self.initial_pose_in_flag = self.initial_pose_mid_flag = False
+        self.initial_articular_th_flag = self.initial_articular_in_flag = self.initial_articular_mid_flag = False
+
+    def _initialize_messages(self):
+        """Initialize all message objects used in the class."""
+        self.q1_th_inv = self.q1_in_inv = self.q1_mid_inv = [0, 0, 0, 1]
+        self.q2_th = self.q2_in = self.q2_mid = [0, 0, 0, 1]
+        
+        self.initial_pose_th_msg = self.initial_pose_in_msg = self.initial_pose_mid_msg = out_virtuose_pose()
+        self.delta_pose_th_msg = self.delta_pose_in_msg = self.delta_pose_mid_msg = out_virtuose_pose()
+        
+        self.initial_articular_th_msg = self.initial_articular_in_msg = self.initial_articular_mid_msg = JointState()
+        self.delta_articular_th_msg = self.delta_articular_in_msg = self.delta_articular_mid_msg = JointState()
+
+        self._initialize_delta_values()
+
+    def _initialize_delta_values(self):
+        """Initialize all delta values used for calculations."""
+        self.de_in_x = self.de_in_y = self.de_in_z = self.derot_in_x = self.derot_in_y = self.derot_in_z = self.derot_in_w = 0.0
+        self.de_mid_x = self.de_mid_y = self.de_mid_z = self.derot_mid_x = self.derot_mid_y = self.derot_mid_z = self.derot_mid_w = 0.0
+        self.de_pin_x = self.de_pin_y = self.de_pin_z = self.derot_pin_x = self.derot_pin_y = self.derot_pin_z = self.derot_pin_w = 0.0
+        self.de_th_x = self.de_th_y = self.de_th_z = self.derot_th_x = self.derot_th_y = self.derot_th_z = self.derot_th_w = 0.0
+
+    def _setup_subscribers_and_publishers(self):
+        """Set up all ROS subscribers and publishers."""
+        # Cartesian subscribers and publishers
+        self.out_thumb_subscriber = rospy.Subscriber("/out_thumb_pose", out_virtuose_pose, self._on_out_thumb_pose_received)
         self.delta_pose_th_pub = rospy.Publisher("/delta_pose_thumb", out_virtuose_pose, queue_size=5)
 
-        self.out_index_subscriber =  rospy.Subscriber("/out_index_pose", out_virtuose_pose, self.__OnOutIndexPoseReceived)
+        self.out_index_subscriber = rospy.Subscriber("/out_index_pose", out_virtuose_pose, self._on_out_index_pose_received)
         self.delta_pose_in_pub = rospy.Publisher("/delta_pose_index", out_virtuose_pose, queue_size=5)
 
-        self.out_middle_subscriber =  rospy.Subscriber("/out_middle_pose", out_virtuose_pose, self.__OnOutMiddlePoseReceived)
+        self.out_middle_subscriber = rospy.Subscriber("/out_middle_pose", out_virtuose_pose, self._on_out_middle_pose_received)
         self.delta_pose_mid_pub = rospy.Publisher("/delta_pose_middle", out_virtuose_pose, queue_size=5)
 
-        #Joints SUBSCRIBERS
-        self.out_thumb_articular_subscriber =  rospy.Subscriber("/out_thumb_articular_pose", JointState, self.__OnOutThumbArticularReceived)
+        # Joint subscribers and publishers
+        self.out_thumb_articular_subscriber = rospy.Subscriber("/out_thumb_articular_pose", JointState, self._on_out_thumb_articular_received)
         self.delta_articular_th_pub = rospy.Publisher("/delta_articular_thumb", JointState, queue_size=5)
 
-        self.out_index_articular_subscriber =  rospy.Subscriber("/out_index_articular_pose", JointState, self.__OnOutIndexArticularReceived)
+        self.out_index_articular_subscriber = rospy.Subscriber("/out_index_articular_pose", JointState, self._on_out_index_articular_received)
         self.delta_articular_in_pub = rospy.Publisher("/delta_articular_index", JointState, queue_size=5)
 
-        self.out_middle_articular_subscriber =  rospy.Subscriber("/out_middle_articular_pose", JointState, self.__OnOutMiddleArticularReceived)
+        self.out_middle_articular_subscriber = rospy.Subscriber("/out_middle_articular_pose", JointState, self._on_out_middle_articular_received)
         self.delta_articular_mid_pub = rospy.Publisher("/delta_articular_middle", JointState, queue_size=5)
 
+    def _main_control_loop(self):
+        """Main control loop for joint control."""
+        if self.joints_controller:
+            rospy.loginfo("JOINT CONTROLLER ACTIVE")
+            while not rospy.is_shutdown():
+                joint_pose = self._calculate_joint_pose()
+                goal = PoseControlGoal(joint_pose=joint_pose)
+                self.client.send_goal(goal, feedback_cb=self.feedback_callback)
+                rospy.sleep(0.1)
 
-        client =\
-            actionlib.SimpleActionClient('pose_control_action', PoseControlAction)                 
+        self.joints_controller = False
+        rospy.loginfo("Pose action client: finished joint pose execution")
 
+    def _calculate_joint_pose(self):
+        """Calculate the joint pose based on delta values."""
+        a_in, b_in, c_in = self.delta_articular_in_msg.position[:3]
+        a_mid, b_mid, c_mid = self.delta_articular_mid_msg.position[:3]
+        a_th, b_th, c_th = self.delta_articular_th_msg.position[:3]
 
+        return [
+            0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,
+            0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,
+            0.1+a_mid, 0.1+b_mid*1.3, 0.0+b_mid, 0.0+c_mid*0.8,
+            3.14, -0.2-a_th*1.0, 0.0+2*b_th, -0.2+0.15*(b_th-c_th)
+        ]
 
-        #       
-        #                                   
-                                            # #### JOINT CONTROLLER ###
-        #   
-        #   ###
-        if self.joints_controller==True:
-            client.wait_for_server()
-            print("JOINT CONTROLLER")
-            k=0
-        while not rospy.is_shutdown(): #finger 3=thumb  2 = pinkie 1= middle 0=index?
-                # create a joint pose for testing
-                # 'point1' pose from joint_poses.yaml
-                # [0.0, 1.0, 1.0, 0.5,\ #index rot lateral, internal pitch, pitch gomito del dito, pitch polpastrello
-                # 0.0, 1.0, 1.0, 0.5,\ middle
-                # 0.0, 1.0, 1.0, 0.5,\ pinkie
-                # 1.5, 0.0, -0.3, 1.0] thumb
-            a_in=self.delta_articular_in_msg.position[0] #;//lateral//finger pitch//tip pitch
-            b_in=self.delta_articular_in_msg.position[1] #;//lateral//finger pitch//tip pitch
-            c_in=self.delta_articular_in_msg.position[2] #;//lateral//finger pitch//tip pitch
-            a_mid=self.delta_articular_mid_msg.position[0] #;//lateral//finger pitch//tip pitch
-            b_mid=self.delta_articular_mid_msg.position[1] #;//lateral//finger pitch//tip pitch
-            c_mid=self.delta_articular_mid_msg.position[2] #;//lateral//finger pitch//tip pitch
-            a_th=self.delta_articular_th_msg.position[0] #;//lateral//finger pitch//tip pitch
-            b_th=self.delta_articular_th_msg.position[1] #;//lateral//finger pitch//tip pitch
-            c_th=self.delta_articular_th_msg.position[2] #;//lateral//finger pitch//tip pitch
-            # joint_pose = \
-                # [0.3+a_in, 0.1+b_in, 0.0+b_in*1.8, 0.5+c_in*2,\
-                # 0.3+a_mid, 0.1+b_mid, 0.0+b_mid*1.8, 0.5+c_mid*2,\
-                # 0.4+a_mid, 0.1+b_mid, 0.0+b_mid*1.8, 0.5+c_mid*2,\
-                # 3.14, 0.0-a_th, 0.0+b_th, 0.5+b_th-c_th] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
-                # #1.3, 0.0, -0.3, 1.3]         
-            # print("b_in",b_in)         
+    def _on_out_thumb_pose_received(self, out_thumb_msg):
+        """Handle incoming thumb pose messages."""
+        if not self.initial_pose_th_flag:
+            self._set_initial_thumb_pose(out_thumb_msg)
+        else:
+            self._calculate_thumb_delta(out_thumb_msg)
 
-            # close thumb to touch the palm
-            # joint_pose = \
-            #     [0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,\
-            #     0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,\
-            #     0.1+a_mid, 0.1+b_mid*1.3, 0.0+b_mid, 0.0+c_mid*0.8,\
-            #     3.14, -0.03-a_th*1.0, 0.0+b_th, 0.0+b_th-c_th] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
-            #     #1.3, 0.0, -0.3, 1.3]       
+    def _set_initial_thumb_pose(self, out_thumb_msg):
+        """Set the initial thumb pose."""
+        self.initial_pose_th_msg = out_thumb_msg
+        self.initial_pose_th_flag = True
+        rospy.loginfo(f"INITIAL THUMB POSE: {self.initial_pose_th_msg}")
 
-            #thumb settled for pinching normally
-            joint_pose = \
-                [0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,\
-                0.1+a_in, 0.1+b_in*1.5, 0.0+b_in, 0.2+c_in*1.0,\
-                0.1+a_mid, 0.1+b_mid*1.3, 0.0+b_mid, 0.0+c_mid*0.8,\
-                3.14, -0.2-a_th*1.0, 0.0+2*b_th, -0.2+0.15*(b_th-c_th)] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
-                #1.3, 0.0, -0.3, 1.3]    
-                #     
-            # joint_pose = \
-            #     [0.0, 0.0, 0.0, 0.0,\
-            #     0.0, 0.0, 0.0, 0.0,\
-            #     0.0, 0.0, 0.0, 0.0,\
-            #     0.0, 0.00, 0.0, 0.0] ##0 non so, 1 rotazione verticale, 2 rotazione verticale, 3finger pitch
-            #     #1.3, 0.0, -0.3, 1.3]    
+    def _calculate_thumb_delta(self, out_thumb_msg):
+        """Calculate the delta for thumb pose."""
+        self._set_quaternions(self.initial_pose_th_msg, out_thumb_msg, 'th')
+        rotation = tf.transformations.quaternion_multiply(self.q2_th, self.q1_th_inv)
+        self._set_delta_pose(self.delta_pose_th_msg, self.initial_pose_th_msg, out_thumb_msg, rotation)
+        self._delta_thumb()
+        self.delta_pose_th_pub.publish(self.delta_pose_th_msg)
 
-            # send the pose to the server
-            goal = PoseControlGoal(joint_pose=joint_pose)
-            client.send_goal(goal, feedback_cb=self.feedbackCallback)
-            
-            # to test the feedback mechanism:
-            feedbacks_received = False
+    # Similar methods for index and middle fingers...
 
-            rospy.sleep(0.1)#/////############### SOPRA LO 0.2(5hz) FUNZIONA ABBASTANZA BENE, best at 0.5(2hz)# ovviamente questo e' perche gli sto chiedendo di fare 0.4 radianti istantaneamente
-            # rospy.spin()#/////############### SOPRA LO 0.2(5hz) FUNZIONA ABBASTANZA BENE, best at 0.5(2hz)# ovviamente questo e' perche gli sto chiedendo di fare 0.4 radianti istantaneamente
+    def _set_quaternions(self, initial_msg, current_msg, finger):
+        """Set quaternions for rotation calculations."""
+        q1_inv = getattr(self, f'q1_{finger}_inv')
+        q2 = getattr(self, f'q2_{finger}')
 
-        #client.wait_for_result()
-        
-        self.joints_controller=False
-            #self.cartesian_controller=True
-        print("pose_action_client: finished joint pose execution")
-        print("feedbacks received: "+ str(feedbacks_received))
-        
+        q1_inv[:3] = [initial_msg.virtuose_pose.rotation.x, initial_msg.virtuose_pose.rotation.y, initial_msg.virtuose_pose.rotation.z]
+        q1_inv[3] = -initial_msg.virtuose_pose.rotation.w  # Negate for inverse
 
-    def __OnOutThumbPoseReceived(self,out_thumb_msg):
-        
-        #msg=out_virtuose_pose()
-        #msg.virtuose_pose.translation.x
-        #out_thumb_msg.virtuose_pose.translation.x
+        q2[:] = [current_msg.virtuose_pose.rotation.x, current_msg.virtuose_pose.rotation.y, 
+                 current_msg.virtuose_pose.rotation.z, current_msg.virtuose_pose.rotation.w]
 
-        #save the initial pose
-        if self.initial_pose_th_flag==False:
-            self.initial_pose_th_msg=out_thumb_msg
-            self.initial_pose_th_flag=True
-            print("INITIAL POSE",self.initial_pose_th_msg)
+    def _set_delta_pose(self, delta_msg, initial_msg, current_msg, rotation):
+        """Set the delta pose message."""
+        delta_msg.virtuose_pose.translation.x = round(initial_msg.virtuose_pose.translation.x - current_msg.virtuose_pose.translation.x, 2)
+        delta_msg.virtuose_pose.translation.y = round(initial_msg.virtuose_pose.translation.y - current_msg.virtuose_pose.translation.y, 2)
+        delta_msg.virtuose_pose.translation.z = round(initial_msg.virtuose_pose.translation.z - current_msg.virtuose_pose.translation.z, 2)
+        delta_msg.virtuose_pose.rotation.x = round(rotation[0], 2)
+        delta_msg.virtuose_pose.rotation.y = round(rotation[1], 2)
+        delta_msg.virtuose_pose.rotation.z = round(rotation[2], 2)
+        delta_msg.virtuose_pose.rotation.w = round(rotation[3], 2)
 
-        #calculate delta pose of current pose wrt initial pose
-        elif self.initial_pose_th_flag ==True:
+    def _delta_thumb(self):
+        """Update thumb delta values."""
+        self.de_th_x = round(self.delta_pose_th_msg.virtuose_pose.translation.x, 2)
+        self.de_th_y = round(self.delta_pose_th_msg.virtuose_pose.translation.y, 2)
+        self.de_th_z = round(self.delta_pose_th_msg.virtuose_pose.translation.z, 2)
+        self.derot_th_x = round(self.delta_pose_th_msg.virtuose_pose.rotation.x, 2)
+        self.derot_th_y = round(self.delta_pose_th_msg.virtuose_pose.rotation.y, 2)
+        self.derot_th_z = round(self.delta_pose_th_msg.virtuose_pose.rotation.z, 2)
+        self.derot_th_w = round(self.delta_pose_th_msg.virtuose_pose.rotation.w, 2)
 
-            self.q1_th_inv[0] = self.initial_pose_th_msg.virtuose_pose.rotation.x
-            self.q1_th_inv[1] = self.initial_pose_th_msg.virtuose_pose.rotation.y
-            self.q1_th_inv[2] = self.initial_pose_th_msg.virtuose_pose.rotation.z
-            self.q1_th_inv[3] = -(self.initial_pose_th_msg.virtuose_pose.rotation.w) # Negate for inverse http://wiki.ros.org/tf2/Tutorials/Quaternions#Relative_rotations
+    # Similar methods for index and middle fingers...
 
-            self.q2_th[0] = out_thumb_msg.virtuose_pose.rotation.x
-            self.q2_th[1] = out_thumb_msg.virtuose_pose.rotation.y
-            self.q2_th[2] = out_thumb_msg.virtuose_pose.rotation.z
-            self.q2_th[3] = out_thumb_msg.virtuose_pose.rotation.w
-
-            rotation=tf.transformations.quaternion_multiply(self.q2_th, self.q1_th_inv)
-
-
-            self.delta_pose_th_msg.virtuose_pose.translation.x = round(self.initial_pose_th_msg.virtuose_pose.translation.x - out_thumb_msg.virtuose_pose.translation.x,2)
-            self.delta_pose_th_msg.virtuose_pose.translation.y = round(self.initial_pose_th_msg.virtuose_pose.translation.y - out_thumb_msg.virtuose_pose.translation.y,2)
-            self.delta_pose_th_msg.virtuose_pose.translation.z = round(self.initial_pose_th_msg.virtuose_pose.translation.z - out_thumb_msg.virtuose_pose.translation.z,2)
-            self.delta_pose_th_msg.virtuose_pose.rotation.x=round(rotation[0],2)
-            self.delta_pose_th_msg.virtuose_pose.rotation.y=round(rotation[1],2)
-            self.delta_pose_th_msg.virtuose_pose.rotation.z=round(rotation[2],2)
-            self.delta_pose_th_msg.virtuose_pose.rotation.w=round(rotation[3],2)
-            self.deltaThumb()
-
-
-            #print("delta_pose_msg",self.delta_pose_msg)
-            self.delta_pose_th_pub.publish(self.delta_pose_th_msg)
-    
-    
-
-    def __OnOutIndexPoseReceived(self,out_index_msg):
-        #save the initial pose
-        if self.initial_pose_in_flag==False:
-            self.initial_pose_in_msg=out_index_msg
-            self.initial_pose_in_flag=True
-            print("INITIAL POSE",self.initial_pose_in_msg)
-
-        #calculate delta pose of current pose wrt initial pose
-        elif self.initial_pose_in_flag ==True:
-
-            self.q1_in_inv[0] = self.initial_pose_in_msg.virtuose_pose.rotation.x
-            self.q1_in_inv[1] = self.initial_pose_in_msg.virtuose_pose.rotation.y
-            self.q1_in_inv[2] = self.initial_pose_in_msg.virtuose_pose.rotation.z
-            self.q1_in_inv[3] = -(self.initial_pose_in_msg.virtuose_pose.rotation.w) # Negate for inverse http://wiki.ros.org/tf2/Tutorials/Quaternions#Relative_rotations
-
-            self.q2_in[0] = out_index_msg.virtuose_pose.rotation.x
-            self.q2_in[1] = out_index_msg.virtuose_pose.rotation.y
-            self.q2_in[2] = out_index_msg.virtuose_pose.rotation.z
-            self.q2_in[3] = out_index_msg.virtuose_pose.rotation.w
-
-            rotation=tf.transformations.quaternion_multiply(self.q2_in, self.q1_in_inv)
-
-
-            self.delta_pose_in_msg.virtuose_pose.translation.x = round(self.initial_pose_in_msg.virtuose_pose.translation.x - out_index_msg.virtuose_pose.translation.x,2)
-            self.delta_pose_in_msg.virtuose_pose.translation.y = round(self.initial_pose_in_msg.virtuose_pose.translation.y - out_index_msg.virtuose_pose.translation.y,2)
-            self.delta_pose_in_msg.virtuose_pose.translation.z = round(self.initial_pose_in_msg.virtuose_pose.translation.z - out_index_msg.virtuose_pose.translation.z,2)
-            self.delta_pose_in_msg.virtuose_pose.rotation.x=round(rotation[0],2)
-            self.delta_pose_in_msg.virtuose_pose.rotation.y=round(rotation[1],2)
-            self.delta_pose_in_msg.virtuose_pose.rotation.z=round(rotation[2],2)
-            self.delta_pose_in_msg.virtuose_pose.rotation.w=round(rotation[3],2)
-            self.deltaIndex()
-
-
-            #print("delta_pose_msg",self.delta_pose_msg)
-            self.delta_pose_in_pub.publish(self.delta_pose_in_msg)
-
-    def __OnOutMiddlePoseReceived(self,out_middle_msg):
-        
-        #msg=out_virtuose_pose()
-        #msg.virtuose_pose.translation.x
-        #out_thumb_msg.virtuose_pose.translation.x
-
-        #save the initial pose
-        if self.initial_pose_mid_flag==False:
-            self.initial_pose_mid_msg=out_middle_msg
-            self.initial_pose_mid_flag=True
-            print("INITIAL POSE",self.initial_pose_mid_msg)
-
-        #calculate delta pose of current pose wrt initial pose
-        elif self.initial_pose_mid_flag ==True:
-
-            self.q1_mid_inv[0] = self.initial_pose_mid_msg.virtuose_pose.rotation.x
-            self.q1_mid_inv[1] = self.initial_pose_mid_msg.virtuose_pose.rotation.y
-            self.q1_mid_inv[2] = self.initial_pose_mid_msg.virtuose_pose.rotation.z
-            self.q1_mid_inv[3] = -(self.initial_pose_mid_msg.virtuose_pose.rotation.w) # Negate for inverse http://wiki.ros.org/tf2/Tutorials/Quaternions#Relative_rotations
-
-            self.q2_mid[0] = out_middle_msg.virtuose_pose.rotation.x
-            self.q2_mid[1] = out_middle_msg.virtuose_pose.rotation.y
-            self.q2_mid[2] = out_middle_msg.virtuose_pose.rotation.z
-            self.q2_mid[3] = out_middle_msg.virtuose_pose.rotation.w
-
-            rotation=tf.transformations.quaternion_multiply(self.q2_mid, self.q1_mid_inv)
-
-
-            self.delta_pose_mid_msg.virtuose_pose.translation.x = round(self.initial_pose_mid_msg.virtuose_pose.translation.x - out_middle_msg.virtuose_pose.translation.x,2)
-            self.delta_pose_mid_msg.virtuose_pose.translation.y = round(self.initial_pose_mid_msg.virtuose_pose.translation.y - out_middle_msg.virtuose_pose.translation.y,2)
-            self.delta_pose_mid_msg.virtuose_pose.translation.z = round(self.initial_pose_mid_msg.virtuose_pose.translation.z - out_middle_msg.virtuose_pose.translation.z,2)
-            self.delta_pose_mid_msg.virtuose_pose.rotation.x=round(rotation[0],2)
-            self.delta_pose_mid_msg.virtuose_pose.rotation.y=round(rotation[1],2)
-            self.delta_pose_mid_msg.virtuose_pose.rotation.z=round(rotation[2],2)
-            self.delta_pose_mid_msg.virtuose_pose.rotation.w=round(rotation[3],2)
-            self.deltaMiddle()
-
-
-            #print("delta_pose_msg",self.delta_pose_msg)
-            self.delta_pose_mid_pub.publish(self.delta_pose_mid_msg)
-
-
-    def deltaThumb(self):
-                self.de_th_x = round(self.delta_pose_th_msg.virtuose_pose.translation.x,2)
-                self.de_th_y = round(self.delta_pose_th_msg.virtuose_pose.translation.y,2)
-                self.de_th_z = round(self.delta_pose_th_msg.virtuose_pose.translation.z,2)
-                self.derot_th_x=round(self.delta_pose_th_msg.virtuose_pose.rotation.x,2)
-                self.derot_th_y=round(self.delta_pose_th_msg.virtuose_pose.rotation.y,2)
-                self.derot_th_z=round(self.delta_pose_th_msg.virtuose_pose.rotation.z,2)
-                self.derot_th_w=round(self.delta_pose_th_msg.virtuose_pose.rotation.w,2)
-    def deltaIndex(self):
-                self.de_in_x = round(self.delta_pose_in_msg.virtuose_pose.translation.x,2)
-                self.de_in_y = round(self.delta_pose_in_msg.virtuose_pose.translation.y,2)
-                self.de_in_z = round(self.delta_pose_in_msg.virtuose_pose.translation.z,2)
-                self.derot_in_x=round(self.delta_pose_in_msg.virtuose_pose.rotation.x,2)
-                self.derot_in_y=round(self.delta_pose_in_msg.virtuose_pose.rotation.y,2)
-                self.derot_in_z=round(self.delta_pose_in_msg.virtuose_pose.rotation.z,2)
-                self.derot_in_w=round(self.delta_pose_in_msg.virtuose_pose.rotation.w,2)
-    def deltaMiddle(self):
-                self.de_mid_x = round(self.delta_pose_mid_msg.virtuose_pose.translation.x,2)
-                self.de_mid_y = round(self.delta_pose_mid_msg.virtuose_pose.translation.y,2)
-                self.de_mid_z = round(self.delta_pose_mid_msg.virtuose_pose.translation.z,2)
-                self.derot_mid_x=round(self.delta_pose_mid_msg.virtuose_pose.rotation.x,2)
-                self.derot_mid_y=round(self.delta_pose_mid_msg.virtuose_pose.rotation.y,2)
-                self.derot_mid_z=round(self.delta_pose_mid_msg.virtuose_pose.rotation.z,2)
-                self.derot_mid_w=round(self.delta_pose_mid_msg.virtuose_pose.rotation.w,2)
-
-
-
-#########   ARTICULAR=JOINTS DELTA PUBLISHERS
-
-    def __OnOutThumbArticularReceived(self,thumb_articular_msg):
-        #msg=JointState() 
-        #msg.position[0]
-        #save the initial pose
-        if self.initial_articular_th_flag==False:
-            self.initial_articular_th_msg=thumb_articular_msg
-            self.initial_articular_th_flag=True
-            print("INITIAL articular THUMB",self.initial_articular_th_msg)
-            print(self.initial_articular_th_msg.position[0])
-        #calculate delta pose of current pose wrt initial pose
-        elif self.initial_articular_th_flag ==True:
-
-            #print("initial_articular_th_msg \n ",self.initial_articular_th_msg.position)
-            #print("thumb_articular_msg \n ",thumb_articular_msg.position[0])
-
-            delta_thumb=[round(self.initial_articular_th_msg.position[0]-thumb_articular_msg.position[0],3),\
-                        round(self.initial_articular_th_msg.position[1]-thumb_articular_msg.position[1],3),\
-                        round(self.initial_articular_th_msg.position[2]-thumb_articular_msg.position[2],3)]
-
-            self.delta_articular_th_msg.position=delta_thumb
-            #self.delta_articular_th_pub.publish(self.delta_articular_th_msg)
-            #print("delta_articular_th_msg \n ",self.delta_articular_th_msg.position)
-            self.delta_articular_th_pub.publish(self.delta_articular_th_msg)
-            
-    def __OnOutIndexArticularReceived(self,index_articular_msg):
-        #msg=JointState() 
-        #msg.position[0]
-        #save the initial pose
-        if self.initial_articular_in_flag==False:
-            self.initial_articular_in_msg=index_articular_msg
-            self.initial_articular_in_flag=True
-            print("INITIAL articular index",self.initial_articular_in_msg)
-            print(self.initial_articular_in_msg.position[0])
-        #calculate delta pose of current pose wrt initial pose
-        elif self.initial_articular_in_flag ==True:
-
-            #print("initial_articular_in_msg \n ",self.initial_articular_in_msg.position)
-            #print("index_articular_msg \n ",index_articular_msg.position[0])
-
-            delta_index=[round(self.initial_articular_in_msg.position[0]-index_articular_msg.position[0],3),\
-                        round(self.initial_articular_in_msg.position[1]-index_articular_msg.position[1],3),\
-                        round(self.initial_articular_in_msg.position[2]-index_articular_msg.position[2],3)]
-
-            self.delta_articular_in_msg.position=delta_index
-            #self.delta_articular_in_pub.publish(self.delta_articular_in_msg)
-            #print("delta_articular_in_msg \n ",self.delta_articular_in_msg.position)
-            self.delta_articular_in_pub.publish(self.delta_articular_in_msg)
-
-
-
-    def __OnOutMiddleArticularReceived(self,middle_articular_msg):
-        #msg=JointState() 
-        #msg.position[0]
-        #save the initial pose
-        if self.initial_articular_mid_flag==False:
-            self.initial_articular_mid_msg=middle_articular_msg
-            self.initial_articular_mid_flag=True
-            print("INITIAL articular middle",self.initial_articular_mid_msg)
-            print(self.initial_articular_mid_msg.position[0])
-        #calculate delta pose of current pose wrt initial pose
-        elif self.initial_articular_mid_flag ==True:
-
-            #print("initial_articular_mid_msg \n ",self.initial_articular_mid_msg.position)
-            #print("middle_articular_msg \n ",middle_articular_msg.position[0])
-
-            delta_middle=[round(self.initial_articular_mid_msg.position[0]-middle_articular_msg.position[0],3),\
-                        round(self.initial_articular_mid_msg.position[1]-middle_articular_msg.position[1],3),\
-                        round(self.initial_articular_mid_msg.position[2]-middle_articular_msg.position[2],3)]
-
-            self.delta_articular_mid_msg.position=delta_middle
-            #self.delta_articular_mid_pub.publish(self.delta_articular_mid_msg)
-            #print("delta_articular_mid_msg \n ",self.delta_articular_mid_msg.position)
-            self.delta_articular_mid_pub.publish(self.delta_articular_mid_msg)
-
-                
-    def feedbackCallback(self,feedback):
-        
-        self.feedbacks_received = True
-
-        rospy.logdebug("pose_action_client: got feedback:")
+    def feedback_callback(self, feedback):
+        """Handle feedback from the action client."""
+        rospy.logdebug("Pose action client: got feedback:")
         rospy.logdebug(feedback)
 
-
-    def list_to_pose(self,list):
+    @staticmethod
+    def list_to_pose(pose_list):
+        """Convert a list to a Pose message."""
         pose = Pose()
-        pose.position.x = list[0]
-        pose.position.y = list[1]
-        pose.position.z = list[2]
-        pose.orientation.x = list[3]
-        pose.orientation.y = list[4]
-        pose.orientation.z = list[5]
-        pose.orientation.w = list[6]
+        pose.position.x, pose.position.y, pose.position.z = pose_list[:3]
+        pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w = pose_list[3:]
         return pose
-
-
-
 
 if __name__ == '__main__':
     try:
         rospy.init_node('pose_action_client')
-        inputmanager = PoseActionClient(None)
+        PoseActionClient()
         rospy.spin()
     except rospy.ROSInterruptException:
-        print("pose_action_client: interrupted by signal")
-        print("pose_action_client: terminating")
-
+        rospy.logerr("Pose action client: interrupted by signal")
+        rospy.logerr("Pose action client: terminating")

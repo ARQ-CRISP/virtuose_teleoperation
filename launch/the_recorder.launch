@@ -1,34 +1,32 @@
 <launch>
-<arg name="bagname"   default="Place_and_release_1"/>
-<arg name="start_time"   default=""/>
-    <!-- <node pkg="rosbag" type="record" name="the_recorder" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /in_virtuose_force /out_index_pose /out_middle_pose /out_thumb_pose /delta_pose_index /delta_pose_middle /delta_pose_thumb /out_virtuose_physical_pose /relaxed_ik/ee_pose_goals /relaxed_ik/joint_angle_solutions /ur5/tf -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" > -->
+    <!-- Use `anon` to generate a unique name for the bag file -->
+    <arg name="unique_id" default="$(anon unique_bag_id)"/>
 
-    <!-- <node pkg="rosbag" type="record" name="the_recorder2" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /delta_articular_middle /delta_articular_index /delta_articular_thumb  -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" >
-        <param name="buffer_size" value="16384"/> 
-        <param name="chunk_size" value="4096"/>/checkout/cart/
-    </node> -->
+    <node pkg="rosbag" type="record" name="the_recorder" args="
+        /stiffness_detection
+        /crisp_merged_poses 
+        /Crisp_IN_2HGlove 
+        /Crisp_MID_2HGlove 
+        /Crisp_RING_2HGlove 
+        /Crisp_TH_2HGlove 
+        /allegroHand_0/joint_states 
+        /relaxed_ik/ee_pose_goals 
+        /ur5/tf 
+        /in_index_force 
+        /in_middle_force 
+        /in_thumb_force 
+        /in_virtuose_force 
+        /xServTopic 
 
-  
-    <!-- <node pkg="rosbag" type="record" name="the_recorder" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /in_index_force /in_middle_force /in_thumb_force /delta_articular_middle /delta_articular_index /delta_articular_thumb /relaxed_ik/ee_pose_goals /ur5/tf /crisp_merged_poses  -O /home/hair/rosbag_ICRA2024/$(arg bagname)_$(arg start_time)" > -->
 
-<!-- icra blind -->
-    <!-- <node pkg="rosbag" type="record" name="the_recorder" args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /relaxed_ik/ee_pose_goals /ur5/tf /crisp_merged_poses  -O /home/hair/rosbag_ICRA2024/$(arg bagname)_$(arg start_time)" > -->
-    
-        <!-- robot state /relaxed_ik/ee_pose_goals /ur5/tf 
-        Allegro Joint State /allegroHand_0/joint_states
-        Fingetips Positions /crisp_merged_poses
-        Crisp Sensors /Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /xServTopic -->
+        <!-- -O /home/hair/stiffness_estimation/ys/ys_$(arg unique_id)" > -->
+        <!-- -O /home/hair/stiffness_estimation/us/us_$(arg unique_id)" > -->
+        <!-- -O /home/hair/stiffness_estimation/brick/brick_$(arg unique_id)" > -->
+        <!-- -O /home/hair/stiffness_estimation/tom/tom_$(arg unique_id)" > -->
+        <!-- -O /home/hair/stiffness_estimation/rice/rice_$(arg unique_id)" > -->
+        <!-- -O /home/hair/stiffness_estimation/no_contact/no_contact_$(arg unique_id)" > -->
 
-<!-- LFD topics -->
-    <node pkg="rosbag" type="record" name="the_recorder" args="/out_virtuose_physical_pose /relaxed_ik/ee_pose_goals /ur5/tf /delta_articular_middle /delta_articular_index /delta_articular_thumb /allegroHand_0/joint_states /crisp_merged_poses /Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /crisp_merged_poses /xServTopic -O /home/hair/rosbag_LFD/$(arg bagname)_$(arg start_time)" >
-   
         <param name="buffer_size" value="16384"/> 
         <param name="chunk_size" value="4096"/>
     </node>
-
-<!-- <node pkg="rosbag" type="record" name="the_recorder" args="/relaxed_ik/ee_pose_goals /ur5/tf -O /home/hair/Desktop/rosbag_taros/$(arg bagname)" output="screen" /> -->
 </launch>
-
-
-   
-<!-- args="/Crisp_IN_2HGlove /Crisp_MID_2HGlove /Crisp_RING_2HGlove /Crisp_TH_2HGlove /allegroHand_0/joint_states /relaxed_ik/ee_pose_goals /ur5/tf /crisp_merged_poses  -O /home/hair/rosbag_ICRA2024/$(arg bagname)_$(arg start_time)" > -->

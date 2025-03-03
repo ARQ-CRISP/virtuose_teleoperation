@@ -41,7 +41,7 @@ def fromTransform(msg):
     # handler_quat_inv = handler_quat.Inverse()
 
     # quat=Rotation.Quaternion(-msg.rotation.y, msg.rotation.x, -msg.rotation.z, msg.rotation.w)
-    new_quat = Rotation.Quaternion(msg.rotation.y, msg.rotation.z, msg.rotation.x, msg.rotation.w)
+    new_quat = Rotation.Quaternion(msg.rotation.x, msg.rotation.y, msg.rotation.z, msg.rotation.w)
     pose.M =new_quat
 
     # pose.M = Rotation.Quaternion(-msg.rotation.y, msg.rotation.x, -msg.rotation.z, msg.rotation.w)*Rotation.Quaternion( 0.92, -0.01, -0.32, 0.18)#Rotation.Quaternion: Constructs a rotation from an x, y, z, w quaternion descripion
@@ -127,7 +127,7 @@ class FakeCartesian_Mapping:
             target.M = Rotation() #current_pose.M
             # target.M = current_pose.M
             ####################COMMENT OUT target.M = current_rotation.M*self.init_rotation.M.Inverse() FOR DISABLING ROTATION, IF UNCOMMENTED ROTATION IS ACTIVE############### 
-            # target.M = current_rotation.M*self.init_rotation.M.Inverse()
+            target.M = current_rotation.M#*self.init_rotation.M.Inverse()
             # print("target.M \n",target.M)
             # print("current_pose.m \n\n\n\n\n", current_rotation.M)
             ee_pose_goals_msg.ee_poses.append(pm.toMsg(target))

@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-# devo creare una istanza del workspace perche ad ora non esiste
-# poi devo decommentare questa riga nel launch 
-# <node pkg="virtuose_teleoperation" type="bounday_controller.py" name="boundary_controller" output="log">
-
 from __future__ import print_function, division, absolute_import
 
 import rospy

@@ -126,6 +126,7 @@
     </node>
     <node pkg="virtuose_teleoperation" type="relaxed_cartesian_mapping.py" name="Haption2relaxedIK" output="screen" />
     <node pkg="virtuose_teleoperation" type="fingertips_cartesianPos.py" name="fingertips_cartesianPos" output="screen" />
+    <node pkg="virtuose_teleoperation" type="contact_stiffness_detection.py" name="contact_stiffness_detection" output="screen" />
 
     <!-- <node pkg="virtuose_teleoperation" type="topics_hz_republisher.py" name="topic_republisher" output="screen"/> -->
 
